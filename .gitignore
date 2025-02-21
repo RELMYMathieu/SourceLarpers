@@ -502,6 +502,8 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Local files to ignore, from building the MP mod
 /game/mod_tf_win64.exe
 /game/mod_hl2mp_win64.exe
 /game/mod_hl2mp/voice_ban.dt
