@@ -29,6 +29,8 @@ class CBaseEntity;
 
 abstract_class IMoveHelperServer : public IMoveHelper
 {
+public:
+	virtual void SetHost( CBasePlayer *host ) = 0;
 };
 
 //-----------------------------------------------------------------------------

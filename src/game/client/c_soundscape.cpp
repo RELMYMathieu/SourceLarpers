@@ -89,7 +89,7 @@ public:
 
 	void OnStopAllSounds()
 	{
-		m_params.entIndex = 0;
+		m_params.ent.Set( NULL );
 		m_params.soundscapeIndex = -1;
 		m_loopingSounds.Purge();
 		m_randomSounds.Purge();
@@ -150,7 +150,7 @@ public:
 		{
 			Msg( "- %d: %s\n", i, m_soundscapes[i]->GetName() );
 		}
-		if ( m_forcedSoundscapeIndex >= 0 )
+		if ( m_forcedSoundscapeIndex )
 		{
 			Msg( "- PLAYING DEBUG SOUNDSCAPE: %d [%s]\n", m_forcedSoundscapeIndex, SoundscapeNameByIndex(m_forcedSoundscapeIndex) );
 		}
@@ -390,7 +390,7 @@ void C_SoundscapeSystem::Shutdown()
 	m_loopingSounds.RemoveAll();
 	m_randomSounds.RemoveAll();
 	m_soundscapes.RemoveAll();
-	m_params.entIndex = 0;
+	m_params.ent.Set( NULL );
 	m_params.soundscapeIndex = -1;
 
 	while ( m_SoundscapeScripts.Count() > 0 )
@@ -554,12 +554,12 @@ void C_SoundscapeSystem::Update( float frametime )
 
 void C_SoundscapeSystem::UpdateAudioParams( audioparams_t &audio )
 {
-	if ( m_params.soundscapeIndex == audio.soundscapeIndex && m_params.entIndex == audio.entIndex )
+	if ( m_params.soundscapeIndex == audio.soundscapeIndex && m_params.ent.Get() == audio.ent.Get() )
 		return;
 
 	m_params = audio;
 	m_forcedSoundscapeIndex = -1;
-	if ( audio.entIndex > 0 && audio.soundscapeIndex >= 0 && audio.soundscapeIndex < m_soundscapes.Count() )
+	if ( audio.ent.Get() && audio.soundscapeIndex >= 0 && audio.soundscapeIndex < m_soundscapes.Count() )
 	{
 		DevReportSoundscapeName( audio.soundscapeIndex );
 		StartNewSoundscape( m_soundscapes[audio.soundscapeIndex] );
@@ -567,7 +567,7 @@ void C_SoundscapeSystem::UpdateAudioParams( audioparams_t &audio )
 	else
 	{
 		// bad index (and the soundscape file actually existed...)
-		if ( audio.entIndex > 0 &&
+		if ( audio.ent.Get() != 0 &&
 			 audio.soundscapeIndex != -1 )
 		{
 			DevMsg(1, "Error: Bad soundscape!\n");

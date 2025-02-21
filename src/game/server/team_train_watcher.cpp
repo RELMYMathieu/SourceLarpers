@@ -73,7 +73,6 @@ BEGIN_DATADESC( CTeamTrainWatcher )
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetSpeedForwardModifier", InputSetSpeedForwardModifier ),
 	DEFINE_INPUTFUNC( FIELD_INTEGER, "SetTrainRecedeTime", InputSetTrainRecedeTime ),
 	DEFINE_INPUTFUNC( FIELD_BOOLEAN, "SetTrainCanRecede", InputSetTrainCanRecede ),
-	DEFINE_INPUTFUNC( FIELD_INTEGER, "SetTrainRecedeTimeAndUpdate", InputSetTrainRecedeTimeAndUpdate ),
 
 	// Outputs
 	DEFINE_OUTPUT( m_OnTrainStartRecede, "OnTrainStartRecede" ),
@@ -312,7 +311,6 @@ CTeamTrainWatcher::CTeamTrainWatcher()
 	m_bReceding = false;
 
 	m_flTrainDistanceFromStart = 0.0f;
-	m_flTrainDistanceAccumulator = 0.f;
 
 	m_nTrainRecedeTime = 0;
 
@@ -421,10 +419,8 @@ void CTeamTrainWatcher::FireGameEvent( IGameEvent *event )
 	const char *pszEventName = event->GetName();
 	if ( FStrEq( pszEventName, "path_track_passed" ) )
 	{
-		// Josh: This comes straight through, server->server
-		// from a GetRefEHandle().ToInt() so this is safe.
-		CBaseHandle hNode = CBaseHandle::UnsafeFromIndex( event->GetInt( "index" ) );
-		CPathTrack *pNode = dynamic_cast< CPathTrack* >( CBaseEntity::Instance( hNode ) );
+		int iIndex = event->GetInt( "index" );
+		CPathTrack *pNode = dynamic_cast< CPathTrack* >( UTIL_EntityByIndex( iIndex ) );
 
 		if ( pNode )
 		{
@@ -715,24 +711,6 @@ void CTeamTrainWatcher::InputSetTrainRecedeTime( inputdata_t &inputdata )
 	else
 	{
 		m_nTrainRecedeTime = 0;
-	}
-}
-
-void CTeamTrainWatcher::InputSetTrainRecedeTimeAndUpdate(inputdata_t &inputdata)
-{
-	InputSetTrainRecedeTime( inputdata );
-
-	// update our time if we're already counting down
-	if ( m_flRecedeTime > 0 )
-	{
-		m_flRecedeTotalTime = tf_escort_recede_time.GetFloat();
-		if ( m_nTrainRecedeTime > 0 )
-		{
-			m_flRecedeTotalTime = m_nTrainRecedeTime;
-		}
-
-		m_flRecedeStartTime = gpGlobals->curtime;
-		m_flRecedeTime = m_flRecedeStartTime + m_flRecedeTotalTime;
 	}
 }
 
@@ -1239,47 +1217,7 @@ void CTeamTrainWatcher::WatcherThink( void )
 
 			m_flTotalProgress = clamp( 1.0 - ( flDistanceToGoal / m_flTotalPathDistance ), 0.0, 1.0 );
 
-			float flLastDistanceFromStart = m_flTrainDistanceFromStart;
 			m_flTrainDistanceFromStart = m_flTotalPathDistance - flDistanceToGoal;
-
-			//engine->Con_NPrintf( 0, "%f", m_flTrainDistanceAccumulator );
-
-			const int nMinProgressToReport = 16; // 16 hammer units per foot
-			// Check if we've made forward progress.
-			if ( m_flTrainDistanceFromStart > flLastDistanceFromStart )
-			{
-				// Accumulate distance traveled
-				m_flTrainDistanceAccumulator += m_flTrainDistanceFromStart - flLastDistanceFromStart;
-		
-				// If we're travelling forward and made enough progress to warrant firing an event
-				if ( m_iTrainSpeedLevel > 0 && m_flTrainDistanceAccumulator >= nMinProgressToReport )
-				{
-					
-					m_flTrainDistanceAccumulator -= nMinProgressToReport;
-
-					// Fire an event for all the touching players
-					if ( m_hAreaCap.Get() )
-					{
-						for ( int i = 1; i <= gpGlobals->maxClients; i++ )
-						{
-							CBaseMultiplayerPlayer *pPlayer = ToBaseMultiplayerPlayer( UTIL_PlayerByIndex( i ) );
-							if ( pPlayer )
-							{
-								if ( m_hAreaCap->IsTouching( pPlayer ) )
-								{
-									IGameEvent *pEvent = gameeventmanager->CreateEvent( "payload_pushed" );
-									if ( pEvent )
-									{
-										pEvent->SetInt( "pusher", pPlayer->GetUserID() );
-										pEvent->SetInt( "distance", 1 );
-										gameeventmanager->FireEvent( pEvent, true );
-									}
-								}
-							}
-						}
-					}
-				}
-			}
 
 			// play alert sounds if necessary
 			for ( int iCount = 0 ; iCount < m_iNumCPLinks ; iCount++ )
@@ -1568,5 +1506,50 @@ Vector CTeamTrainWatcher::GetNextCheckpointPosition( void ) const
 	return vec3_origin;
 }
 
+#if defined( STAGING_ONLY ) && defined( TF_DLL )
+CON_COMMAND_F( tf_dumptrainstats, "Dump the stats for the current train watcher to the console", FCVAR_GAMEDLL )
+{
+	// Listenserver host or rcon access only!
+	if ( !UTIL_IsCommandIssuedByServerAdmin() )
+		return;
+
+	CTeamTrainWatcher *pWatcher = NULL;
+	while( ( pWatcher = dynamic_cast< CTeamTrainWatcher * >( gEntList.FindEntityByClassname( pWatcher, "team_train_watcher" ) ) ) != NULL )
+	{
+		pWatcher->DumpStats();
+	}
+}
+
+void CTeamTrainWatcher::DumpStats( void )
+{
+	float flLastPosition = 0.0f;
+	float flTotalDistance = 0.0f;
+ 	char szOutput[2048];
+	char szTemp[256];
+
+	V_strcpy_safe( szOutput, "\n\nTrain Watcher stats for team " );
+	V_strcat_safe( szOutput, ( GetTeamNumber() == TF_TEAM_RED ) ? "Red\n" : "Blue\n" );
+
+	for( int i = 0; i < m_iNumCPLinks ; ++i )
+	{
+		float flDistance = m_CPLinks[i].flDistanceFromStart - flLastPosition;
+		if ( i == 0 )
+		{
+			V_sprintf_safe( szTemp, "\tControl Point: %d\tDistance from start: %0.2f\n", i + 1, flDistance );
+		}
+		else
+		{
+			V_sprintf_safe( szTemp, "\tControl Point: %d\tDistance from previous point: %0.2f\n", i + 1, flDistance );
+		}
+		V_strcat_safe( szOutput, szTemp );
+		flTotalDistance += flDistance;
+		flLastPosition = m_CPLinks[i].flDistanceFromStart;
+	}
+
+	V_sprintf_safe( szTemp, "\tTotal Distance: %0.2f\n\n", flTotalDistance ); 
+	V_strcat_safe( szOutput, szTemp );
+	Msg( "%s", szOutput );
+}
+#endif // STAGING_ONLY && TF_DLL
 
 

@@ -352,10 +352,7 @@ public:
 		InitCommentary();
 
 		IGameEvent *event = gameeventmanager->CreateEvent( "playing_commentary" );
-		if ( event )
-		{
-			gameeventmanager->FireEventClientSide( event );
-		}
+		gameeventmanager->FireEventClientSide( event );
 	}
 
 	CPointCommentaryNode *GetNodeUnderCrosshair()
@@ -650,7 +647,7 @@ public:
 				{
 					Warning("Commentary: Failed to spawn commentary entity, type: '%s'\n", pNodeName );
 				}
-
+				pkvFile->deleteThis();
 				// Move to next entity
 				pkvNode = pkvNode->GetNextKey();
 			}
@@ -842,7 +839,7 @@ void CC_CommentaryChanged( IConVar *pConVar, const char *pOldString, float flOld
 		g_CommentarySystem.SetCommentaryMode( var.GetBool() );
 	}
 }
-ConVar commentary( "commentary", "0", FCVAR_NONE, "Desired commentary mode state.", CC_CommentaryChanged );
+ConVar commentary("commentary", "0", FCVAR_ARCHIVE | FCVAR_ARCHIVE_XBOX, "Desired commentary mode state.", CC_CommentaryChanged );
 
 //-----------------------------------------------------------------------------
 // Purpose: We need to revert back any convar changes that are made by the

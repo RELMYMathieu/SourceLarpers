@@ -91,7 +91,7 @@ static ConVar r_flashlightmodels( "r_flashlightmodels", "1" );
 static ConVar r_shadowrendertotexture( "r_shadowrendertotexture", "0" );
 static ConVar r_flashlight_version2( "r_flashlight_version2", "0", FCVAR_CHEAT | FCVAR_DEVELOPMENTONLY );
 
-ConVar r_flashlightdepthtexture( "r_flashlightdepthtexture", "1", FCVAR_ALLOWED_IN_COMPETITIVE );
+ConVar r_flashlightdepthtexture( "r_flashlightdepthtexture", "1" );
 
 #if defined( _X360 )
 ConVar r_flashlightdepthres( "r_flashlightdepthres", "512" );
@@ -1180,6 +1180,7 @@ CClientShadowMgr::CClientShadowMgr() :
 //-----------------------------------------------------------------------------
 CON_COMMAND_F( r_shadowdir, "Set shadow direction", FCVAR_CHEAT )
 {
+	Vector dir;
 	if ( args.ArgC() == 1 )
 	{
 		Vector dir = s_ClientShadowMgr.GetShadowDirection();
@@ -1189,7 +1190,6 @@ CON_COMMAND_F( r_shadowdir, "Set shadow direction", FCVAR_CHEAT )
 
 	if ( args.ArgC() == 4 )
 	{
-		Vector dir;
 		dir.x = atof( args[1] );
 		dir.y = atof( args[2] );
 		dir.z = atof( args[3] );
@@ -1199,6 +1199,8 @@ CON_COMMAND_F( r_shadowdir, "Set shadow direction", FCVAR_CHEAT )
 
 CON_COMMAND_F( r_shadowangles, "Set shadow angles", FCVAR_CHEAT )
 {
+	Vector dir;
+	QAngle angles;
 	if (args.ArgC() == 1)
 	{
 		Vector dir = s_ClientShadowMgr.GetShadowDirection();
@@ -1210,8 +1212,6 @@ CON_COMMAND_F( r_shadowangles, "Set shadow angles", FCVAR_CHEAT )
 
 	if (args.ArgC() == 4)
 	{
-		Vector dir;
-		QAngle angles;
 		angles.x = atof( args[1] );
 		angles.y = atof( args[2] );
 		angles.z = atof( args[3] );
@@ -1289,9 +1289,15 @@ bool CClientShadowMgr::Init()
 	SetShadowDistance( 50 );
 
 	SetShadowBlobbyCutoffArea( 0.005 );
-
+	/*
+	// https://developer.valvesoftware.com/wiki/Env_projectedtexture/fixes
+	//
 	bool bTools = CommandLine()->CheckParm( "-tools" ) != NULL;
 	m_nMaxDepthTextureShadows = bTools ? 4 : 1;	// Just one shadow depth texture in games, more in tools
+	//*/
+	// I just made that number up, but the wiki suggests staying < 10
+	//	as a new render texture is created for each shadow map.
+	m_nMaxDepthTextureShadows = 8;
 
 	bool bLowEnd = ( g_pMaterialSystemHardwareConfig->GetDXSupportLevel() < 80 );
 
@@ -1328,13 +1334,20 @@ void CClientShadowMgr::Shutdown()
 	materials->RemoveRestoreFunc( ShadowRestoreFunc );
 }
 
-
+/* Code was added to this function from https://developer.valvesoftware.com/wiki/Env_projectedtexture/fixes#Create_a_shadow_map_depth_texture_greater_than_the_framebuffer_size */
 //-----------------------------------------------------------------------------
 // Initialize, shutdown depth-texture shadows
 //-----------------------------------------------------------------------------
 void CClientShadowMgr::InitDepthTextureShadows()
 {
 	VPROF_BUDGET( "CClientShadowMgr::InitDepthTextureShadows", VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
+
+	// SAUL: start benchmark timer
+	CFastTimer timer;
+	timer.Start();
+	
+	// SAUL: set m_nDepthTextureResolution to the depth resolution we want
+	m_nDepthTextureResolution = r_flashlightdepthres.GetInt();
 
 	if( !m_bDepthTextureActive )
 	{
@@ -1352,7 +1365,9 @@ void CClientShadowMgr::InitDepthTextureShadows()
 		m_DummyColorTexture.InitRenderTargetTexture( r_flashlightdepthres.GetInt(), r_flashlightdepthres.GetInt(), RT_SIZE_OFFSCREEN, IMAGE_FORMAT_BGR565, MATERIAL_RT_DEPTH_SHARED, false, "_rt_ShadowDummy" );
 		m_DummyColorTexture.InitRenderTargetSurface( r_flashlightdepthres.GetInt(), r_flashlightdepthres.GetInt(), IMAGE_FORMAT_BGR565, true );
 #else
-		m_DummyColorTexture.InitRenderTarget( r_flashlightdepthres.GetInt(), r_flashlightdepthres.GetInt(), RT_SIZE_OFFSCREEN, nullFormat, MATERIAL_RT_DEPTH_NONE, false, "_rt_ShadowDummy" );
+		// SAUL: we want to create a render target of specific size, so use RT_SIZE_NO_CHANGE
+		m_DummyColorTexture.InitRenderTarget( m_nDepthTextureResolution, m_nDepthTextureResolution, RT_SIZE_NO_CHANGE, nullFormat, MATERIAL_RT_DEPTH_NONE, false, "_rt_ShadowDummy" );
+		//m_DummyColorTexture.InitRenderTarget( r_flashlightdepthres.GetInt(), r_flashlightdepthres.GetInt(), RT_SIZE_OFFSCREEN, nullFormat, MATERIAL_RT_DEPTH_NONE, false, "_rt_ShadowDummy" );
 #endif
 
 		// Create some number of depth-stencil textures
@@ -1372,7 +1387,9 @@ void CClientShadowMgr::InitDepthTextureShadows()
 			depthTex.InitRenderTargetTexture( m_nDepthTextureResolution, m_nDepthTextureResolution, RT_SIZE_OFFSCREEN, dstFormat, MATERIAL_RT_DEPTH_NONE, false, strRTName );
 			depthTex.InitRenderTargetSurface( 1, 1, dstFormat, false );
 #else
-			depthTex.InitRenderTarget( m_nDepthTextureResolution, m_nDepthTextureResolution, RT_SIZE_OFFSCREEN, dstFormat, MATERIAL_RT_DEPTH_NONE, false, strRTName );
+			// SAUL: we want to create a *DEPTH TEXTURE* of specific size, so use RT_SIZE_NO_CHANGE and MATERIAL_RT_DEPTH_ONLY
+			depthTex.InitRenderTarget( m_nDepthTextureResolution, m_nDepthTextureResolution, RT_SIZE_NO_CHANGE, dstFormat, MATERIAL_RT_DEPTH_ONLY, false, strRTName );
+			//depthTex.InitRenderTarget( m_nDepthTextureResolution, m_nDepthTextureResolution, RT_SIZE_OFFSCREEN, dstFormat, MATERIAL_RT_DEPTH_NONE, false, strRTName );
 #endif
 
 			if ( i == 0 )
@@ -1382,12 +1399,18 @@ void CClientShadowMgr::InitDepthTextureShadows()
 				r_flashlightdepthres.SetValue( m_nDepthTextureResolution );
 			}
 
+			// SAUL: ensure the depth texture size wasn't changed
+			Assert(depthTex->GetActualWidth() == m_nDepthTextureResolution);
+
 			m_DepthTextureCache.AddToTail( depthTex );
 			m_DepthTextureCacheLocks.AddToTail( bFalse );
 		}
 
 		materials->EndRenderTargetAllocation();
 	}
+
+	timer.End();
+	DevMsg("InitDepthTextureShadows took %.2f msec\n", timer.GetDuration().GetMillisecondsF());
 }
 
 void CClientShadowMgr::ShutdownDepthTextureShadows() 
@@ -1802,9 +1825,6 @@ ClientShadowHandle_t CClientShadowMgr::CreateProjectedTexture( ClientEntityHandl
 	if( !( flags & SHADOW_FLAGS_FLASHLIGHT ) )
 	{
 		IClientRenderable *pRenderable = ClientEntityList().GetClientRenderableFromHandle( entity );
-		if ( !pRenderable )
-			return m_Shadows.InvalidIndex();
-
 		int modelType = modelinfo->GetModelType( pRenderable->GetModel() );
 		if (modelType == mod_brush)
 		{
@@ -2247,7 +2267,7 @@ inline ShadowType_t CClientShadowMgr::GetActualShadowCastType( IClientRenderable
 class CShadowLeafEnum : public ISpatialLeafEnumerator
 {
 public:
-	bool EnumerateLeaf( int leaf, intp context )
+	bool EnumerateLeaf( int leaf, int context )
 	{
 		m_LeafList.AddToTail( leaf );
 		return true;
@@ -2387,10 +2407,7 @@ void CClientShadowMgr::BuildOrthoShadow( IClientRenderable* pRenderable,
 // Visualization....
 //-----------------------------------------------------------------------------
 void CClientShadowMgr::DrawRenderToTextureDebugInfo( IClientRenderable* pRenderable, const Vector& mins, const Vector& maxs )
-{
-	if ( !debugoverlay )
-		return;
-
+{   
 	// Get the object's basis
 	Vector vec[3];
 	AngleVectors( pRenderable->GetRenderAngles(), &vec[0], &vec[1], &vec[2] );
@@ -2491,7 +2508,7 @@ void CClientShadowMgr::BuildRenderToTextureShadow( IClientRenderable* pRenderabl
 	Vector boxSize;
 	VectorSubtract( maxs, mins, boxSize );
 	
-	Vector yvec = vec3_origin;
+	Vector yvec;
 	float fProjMax = 0.0f;
 	for( int i = 0; i != 3; ++i )
 	{
@@ -2572,11 +2589,8 @@ static void LineDrawHelper( const Vector &startShadowSpace, const Vector &endSha
 	Vector3DMultiplyPositionProjective( shadowToWorld, startShadowSpace, startWorldSpace );
 	Vector3DMultiplyPositionProjective( shadowToWorld, endShadowSpace, endWorldSpace );
 
-	if ( debugoverlay )
-	{
-		debugoverlay->AddLineOverlay( startWorldSpace + Vector( 0.0f, 0.0f, 1.0f ), 
-			endWorldSpace + Vector( 0.0f, 0.0f, 1.0f ), r, g, b, false, -1 );
-	}
+	debugoverlay->AddLineOverlay( startWorldSpace + Vector( 0.0f, 0.0f, 1.0f ), 
+		endWorldSpace + Vector( 0.0f, 0.0f, 1.0f ), r, g, b, false, -1 );
 }
 
 static void DebugDrawFrustum( const Vector &vOrigin, const VMatrix &matWorldToFlashlight )
@@ -2631,6 +2645,17 @@ void CClientShadowMgr::BuildFlashlight( ClientShadowHandle_t handle )
 	}
 
 	VPROF_BUDGET( "CClientShadowMgr::BuildFlashlight", VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
+
+	/*
+	// https://developer.valvesoftware.com/wiki/Env_projectedtexture/fixes#Enabling_visibility_tests
+	//
+	// Don't project the flashlight if the frustum AABB is not in our view
+	Vector mins, maxs;
+	CalculateAABBFromProjectionMatrix(shadow.m_WorldToShadow, &mins, &maxs);
+	
+	if(engine->CullBox(mins, maxs))
+		return;
+	//*/
 
 	bool bLightModels = r_flashlightmodels.GetBool();
 	bool bLightSpecificEntity = shadow.m_hTargetEntity.Get() != NULL;
@@ -2940,6 +2965,7 @@ void CClientShadowMgr::PreRender()
 	unsigned short i = m_DirtyShadows.FirstInorder();
 	while ( i != m_DirtyShadows.InvalidIndex() )
 	{
+		MDLCACHE_CRITICAL_SECTION();
 		ClientShadowHandle_t& handle = m_DirtyShadows[ i ];
 		Assert( m_Shadows.IsValidIndex( handle ) );
 		UpdateProjectedTextureInternal( handle, false );
@@ -2949,7 +2975,7 @@ void CClientShadowMgr::PreRender()
 
 	// Transparent shadows must remain dirty, since they were not re-projected
 	int nCount = m_TransparentShadows.Count();
-	for ( i = 0; i < nCount; ++i )
+	for ( int i = 0; i < nCount; ++i )
 	{
 		m_DirtyShadows.Insert( m_TransparentShadows[i] );
 	}
@@ -3179,9 +3205,9 @@ void CClientShadowMgr::UpdateProjectedTextureInternal( ClientShadowHandle_t hand
 		VPROF_BUDGET( "CClientShadowMgr::UpdateProjectedTextureInternal", VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
 
 		Assert( ( shadow.m_Flags & SHADOW_FLAGS_SHADOW ) == 0 );
-		ClientShadow_t& shadowClient = m_Shadows[handle];
+		ClientShadow_t& shadow = m_Shadows[handle];
 
-		shadowmgr->EnableShadow( shadowClient.m_ShadowHandle, true );
+		shadowmgr->EnableShadow( shadow.m_ShadowHandle, true );
 
 		// FIXME: What's the difference between brush and model shadows for light projectors? Answer: nothing.
 		UpdateBrushShadow( NULL, handle );
@@ -3855,7 +3881,9 @@ int CClientShadowMgr::BuildActiveShadowDepthList( const CViewSetup &viewSetup, i
 		// Bail if this flashlight doesn't want shadows
 		if ( !flashlightState.m_bEnableShadows )
 			continue;
-
+		/*
+		// https://developer.valvesoftware.com/wiki/Env_projectedtexture/fixes#Removing_incorrect_culling
+		//
 		// Calculate an AABB around the shadow frustum
 		Vector vecAbsMins, vecAbsMaxs;
 		CalculateAABBFromProjectionMatrix( shadow.m_WorldToShadow, &vecAbsMins, &vecAbsMaxs );
@@ -3870,6 +3898,7 @@ int CClientShadowMgr::BuildActiveShadowDepthList( const CViewSetup &viewSetup, i
 			shadowmgr->SetFlashlightDepthTexture( shadow.m_ShadowHandle, NULL, 0 );
 			continue;
 		}
+		//*/
 
 		if ( nActiveDepthShadowCount >= nMaxDepthShadows )
 		{
@@ -3939,11 +3968,11 @@ void CClientShadowMgr::ComputeShadowDepthTextures( const CViewSetup &viewSetup )
 		if ( !bGotShadowDepthTexture )
 		{
 			// If we don't get one, that means we have too many this frame so bind no depth texture
-			static int mapCount = 0;
-			if( mapCount < 10 )
+			static int bitchCount = 0;
+			if( bitchCount < 10 )
 			{
 				Warning( "Too many shadow maps this frame!\n"  );
-				mapCount++;
+				bitchCount++;
 			}
 
 			Assert(0);
@@ -3975,8 +4004,8 @@ void CClientShadowMgr::ComputeShadowDepthTextures( const CViewSetup &viewSetup )
 		}
 
 		// Set depth bias factors specific to this flashlight
-		CMatRenderContextPtr pRenderContextMat( materials );
-		pRenderContextMat->SetShadowDepthBiasFactors( flashlightState.m_flShadowSlopeScaleDepthBias, flashlightState.m_flShadowDepthBias );
+		CMatRenderContextPtr pRenderContext( materials );
+		pRenderContext->SetShadowDepthBiasFactors( flashlightState.m_flShadowSlopeScaleDepthBias, flashlightState.m_flShadowDepthBias );
 
 		// Render to the shadow depth texture with appropriate view
 		view->UpdateShadowDepthTexture( m_DummyColorTexture, shadowDepthTexture, shadowView );
@@ -3998,7 +4027,7 @@ static void SetupBonesOnBaseAnimating( C_BaseAnimating *&pBaseAnimating )
 }
 
 
-void CClientShadowMgr::ComputeShadowTextures( const CViewSetup &viewShadow, int leafCount, LeafIndex_t* pLeafList )
+void CClientShadowMgr::ComputeShadowTextures( const CViewSetup &view, int leafCount, LeafIndex_t* pLeafList )
 {
 	VPROF_BUDGET( "CClientShadowMgr::ComputeShadowTextures", VPROF_BUDGETGROUP_SHADOW_RENDERING );
 
@@ -4009,7 +4038,7 @@ void CClientShadowMgr::ComputeShadowTextures( const CViewSetup &viewShadow, int 
 
 	MDLCACHE_CRITICAL_SECTION();
 	// First grab all shadow textures we may want to render
-	int nCount = s_VisibleShadowList.FindShadows( &viewShadow, leafCount, pLeafList );
+	int nCount = s_VisibleShadowList.FindShadows( &view, leafCount, pLeafList );
 	if ( nCount == 0 )
 		return;
 
@@ -4225,7 +4254,7 @@ bool CShadowProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
 
 void CShadowProxy::OnBind( void *pProxyData )
 {
-	unsigned short clientShadowHandle = ( unsigned short )(intp)pProxyData&0xffff;
+	unsigned short clientShadowHandle = ( unsigned short )(int)pProxyData&0xffff;
 	ITexture* pTex = s_ClientShadowMgr.GetShadowTexture( clientShadowHandle );
 	m_BaseTextureVar->SetTextureValue( pTex );
 	if ( ToolsEnabled() )
@@ -4309,7 +4338,7 @@ bool CShadowModelProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
 
 void CShadowModelProxy::OnBind( void *pProxyData )
 {
-	unsigned short clientShadowHandle = ( unsigned short )((intp)pProxyData&0xffff);
+	unsigned short clientShadowHandle = ( unsigned short )((int)pProxyData&0xffff);
 	ITexture* pTex = s_ClientShadowMgr.GetShadowTexture( clientShadowHandle );
 	m_BaseTextureVar->SetTextureValue( pTex );
 

@@ -45,15 +45,13 @@ BEGIN_SEND_TABLE_NOBASE( CPlayerLocalData, DT_Local )
 	SendPropFloat		( SENDINFO_VECTORELEM(m_vecPunchAngleVel, 2), 32, SPROP_NOSCALE|SPROP_CHANGES_OFTEN ),
 
 #else
-	// misyl: was causing some rare pred errors at 17 bits...
-	SendPropFloat	(SENDINFO(m_flFallVelocity), 32, SPROP_NOSCALE | SPROP_CHANGES_OFTEN, -4096.0f, 4096.0f ),
+	SendPropFloat	(SENDINFO(m_flFallVelocity), 17, SPROP_CHANGES_OFTEN, -4096.0f, 4096.0f ),
 	SendPropVector	(SENDINFO(m_vecPunchAngle),      -1,  SPROP_COORD|SPROP_CHANGES_OFTEN),
-	SendPropVector	(SENDINFO(m_vecPunchAngleVel),   -1,  SPROP_COORD| SPROP_CHANGES_OFTEN ),
+	SendPropVector	(SENDINFO(m_vecPunchAngleVel),      -1,  SPROP_COORD),
 #endif
 	SendPropInt		(SENDINFO(m_bDrawViewmodel), 1, SPROP_UNSIGNED ),
 	SendPropInt		(SENDINFO(m_bWearingSuit), 1, SPROP_UNSIGNED ),
 	SendPropBool	(SENDINFO(m_bPoisoned)),
-	SendPropBool	(SENDINFO(m_bForceLocalPlayerDraw)),
 
 	SendPropFloat	(SENDINFO(m_flStepSize), 16, SPROP_ROUNDUP, 0.0f, 128.0f ),
 	SendPropInt		(SENDINFO(m_bAllowAutoMovement),1, SPROP_UNSIGNED ),
@@ -64,7 +62,6 @@ BEGIN_SEND_TABLE_NOBASE( CPlayerLocalData, DT_Local )
 	SendPropInt	(SENDINFO_STRUCTELEM(m_skybox3d.area),	8, SPROP_UNSIGNED ),
 	SendPropInt( SENDINFO_STRUCTELEM( m_skybox3d.fog.enable ), 1, SPROP_UNSIGNED ),
 	SendPropInt( SENDINFO_STRUCTELEM( m_skybox3d.fog.blend ), 1, SPROP_UNSIGNED ),
-	SendPropInt( SENDINFO_STRUCTELEM( m_skybox3d.fog.radial ), 1, SPROP_UNSIGNED ),
 	SendPropVector( SENDINFO_STRUCTELEM(m_skybox3d.fog.dirPrimary), -1, SPROP_COORD),
 	SendPropInt( SENDINFO_STRUCTELEM( m_skybox3d.fog.colorPrimary ), 32, SPROP_UNSIGNED ),
 	SendPropInt( SENDINFO_STRUCTELEM( m_skybox3d.fog.colorSecondary ), 32, SPROP_UNSIGNED ),
@@ -85,9 +82,7 @@ BEGIN_SEND_TABLE_NOBASE( CPlayerLocalData, DT_Local )
 	SendPropVector( SENDINFO_STRUCTARRAYELEM( m_audio.localSound, 7 ), -1, SPROP_COORD),
 	SendPropInt( SENDINFO_STRUCTELEM( m_audio.soundscapeIndex ), 17, 0 ),
 	SendPropInt( SENDINFO_STRUCTELEM( m_audio.localBits ), NUM_AUDIO_LOCAL_SOUNDS, SPROP_UNSIGNED ),
-	SendPropInt( SENDINFO_STRUCTELEM( m_audio.entIndex ) ),
-
-	SendPropString( SENDINFO( m_szScriptOverlayMaterial ) ),
+	SendPropEHandle( SENDINFO_STRUCTELEM( m_audio.ent ) ),
 END_SEND_TABLE()
 
 BEGIN_SIMPLE_DATADESC( fogplayerparams_t )
@@ -118,7 +113,6 @@ BEGIN_SIMPLE_DATADESC( fogparams_t )
 	DEFINE_FIELD( endLerpTo, FIELD_FLOAT ),
 	DEFINE_FIELD( lerptime, FIELD_TIME ),
 	DEFINE_FIELD( duration, FIELD_FLOAT ),
-	DEFINE_FIELD( radial, FIELD_BOOLEAN ),
 END_DATADESC()
 
 BEGIN_SIMPLE_DATADESC( sky3dparams_t )
@@ -135,7 +129,7 @@ BEGIN_SIMPLE_DATADESC( audioparams_t )
 	DEFINE_AUTO_ARRAY( localSound, FIELD_VECTOR ),
 	DEFINE_FIELD( soundscapeIndex, FIELD_INTEGER ),
 	DEFINE_FIELD( localBits, FIELD_INTEGER ),
-	DEFINE_FIELD( entIndex, FIELD_INTEGER ),
+	DEFINE_FIELD( ent, FIELD_EHANDLE ),
 
 END_DATADESC()
 
@@ -154,13 +148,11 @@ BEGIN_SIMPLE_DATADESC( CPlayerLocalData )
 	DEFINE_FIELD( m_nStepside, FIELD_INTEGER ),
 	DEFINE_FIELD( m_flFallVelocity, FIELD_FLOAT ),
 	DEFINE_FIELD( m_nOldButtons, FIELD_INTEGER ),
-	DEFINE_FIELD( m_flOldForwardMove, FIELD_FLOAT ),
 	DEFINE_FIELD( m_vecPunchAngle, FIELD_VECTOR ),
 	DEFINE_FIELD( m_vecPunchAngleVel, FIELD_VECTOR ),
 	DEFINE_FIELD( m_bDrawViewmodel, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bWearingSuit, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bPoisoned, FIELD_BOOLEAN ),
-	DEFINE_FIELD( m_bForceLocalPlayerDraw, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_flStepSize, FIELD_FLOAT ),
 	DEFINE_FIELD( m_bAllowAutoMovement, FIELD_BOOLEAN ),
 	DEFINE_EMBEDDED( m_skybox3d ),
@@ -190,11 +182,9 @@ CPlayerLocalData::CPlayerLocalData()
 #endif
 	m_audio.soundscapeIndex = 0;
 	m_audio.localBits = 0;
-	m_audio.entIndex = 0;
+	m_audio.ent.Set( NULL );
 	m_pOldSkyCamera = NULL;
 	m_bDrawViewmodel = true;
-
-	m_szScriptOverlayMaterial.GetForModify()[0] = '\0';
 }
 
 

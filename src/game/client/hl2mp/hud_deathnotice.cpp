@@ -95,8 +95,6 @@ CHudDeathNotice::CHudDeathNotice( const char *pElementName ) :
 	m_iconD_skull = NULL;
 
 	SetHiddenBits( HIDEHUD_MISCSTATUS );
-
-	SetSize( ScreenWidth(), ScreenHeight() );
 }
 
 //-----------------------------------------------------------------------------
@@ -106,8 +104,6 @@ void CHudDeathNotice::ApplySchemeSettings( IScheme *scheme )
 {
 	BaseClass::ApplySchemeSettings( scheme );
 	SetPaintBackgroundEnabled( false );
-
-	SetSize( ScreenWidth(), ScreenHeight() );
 }
 
 //-----------------------------------------------------------------------------
@@ -180,11 +176,9 @@ void CHudDeathNotice::Paint()
 		g_pVGuiLocalize->ConvertANSIToUnicode( m_DeathNotices[i].Victim.szName, victim, sizeof( victim ) );
 		g_pVGuiLocalize->ConvertANSIToUnicode( m_DeathNotices[i].Killer.szName, killer, sizeof( killer ) );
 
-		int nLinePadding = vgui::scheme()->GetProportionalScaledValue( 4 );
-
 		// Get the local position for this notice
 		int len = UTIL_ComputeStringWidth( m_hTextFont, victim );
-		int y = yStart + ( ( m_flLineHeight + nLinePadding ) * i);
+		int y = yStart + (m_flLineHeight * i);
 
 		int iconWide;
 		int iconTall;
@@ -201,17 +195,14 @@ void CHudDeathNotice::Paint()
 			iconTall = (int)( scale * (float)icon->Height() );
 		}
 
-		// misyl: Looks bad all crunched up in the corner.
-		int nPadding = vgui::scheme()->GetProportionalScaledValue( 16 );
-
 		int x;
 		if ( m_bRightJustify )
 		{
-			x =	GetWide() - len - iconWide - nPadding;
+			x =	GetWide() - len - iconWide;
 		}
 		else
 		{
-			x = nPadding;
+			x = 0;
 		}
 		
 		// Only draw killers name if it wasn't a suicide

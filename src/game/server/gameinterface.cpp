@@ -89,7 +89,7 @@
 #include "tier3/tier3.h"
 #include "serverbenchmark_base.h"
 #include "querycache.h"
-#include "player_voice_listener.h"
+
 
 #ifdef TF_DLL
 #include "gc_clientsystem.h"
@@ -97,8 +97,8 @@
 #include "steamworks_gamestats.h"
 #include "tf/tf_gc_server.h"
 #include "tf_gamerules.h"
+#include "tf_lobby.h"
 #include "player_vs_environment/tf_population_manager.h"
-#include "workshop/maps_workshop.h"
 
 extern ConVar tf_mm_trusted;
 extern ConVar tf_mm_servermode;
@@ -182,7 +182,6 @@ IServerEngineTools *serverenginetools = NULL;
 ISceneFileCache *scenefilecache = NULL;
 IXboxSystem *xboxsystem = NULL;	// Xbox 360 only
 IMatchmaking *matchmaking = NULL;	// Xbox 360 only
-IScriptManager *scriptmanager = NULL;
 #if defined( REPLAY_ENABLED )
 IReplaySystem *g_pReplay = NULL;
 IServerReplayContext *g_pReplayServerContext = NULL;
@@ -560,11 +559,41 @@ void DrawAllDebugOverlays( void )
 
 CServerGameDLL g_ServerGameDLL;
 // INTERFACEVERSION_SERVERGAMEDLL_VERSION_8 is compatible with the latest since we're only adding things to the end, so expose that as well.
-//EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CServerGameDLL, IServerGameDLL008, INTERFACEVERSION_SERVERGAMEDLL_VERSION_8, g_ServerGameDLL );
+EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CServerGameDLL, IServerGameDLL008, INTERFACEVERSION_SERVERGAMEDLL_VERSION_8, g_ServerGameDLL );
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CServerGameDLL, IServerGameDLL, INTERFACEVERSION_SERVERGAMEDLL, g_ServerGameDLL);
 
 // When bumping the version to this interface, check that our assumption is still valid and expose the older version in the same way
-COMPILE_TIME_ASSERT( INTERFACEVERSION_SERVERGAMEDLL_INT == 12 );
+COMPILE_TIME_ASSERT( INTERFACEVERSION_SERVERGAMEDLL_INT == 9 );
+
+/* BM: https://developer.valvesoftware.com/wiki/Mounting_multiple_games */
+static void MountAdditionalContent()
+{
+	KeyValues *pMainFile = new KeyValues("gameinfo.txt");
+#ifndef _WINDOWS
+	// case sensitivity
+	pMainFile->LoadFromFile(filesystem, "GameInfo.txt", "MOD");
+	if (!pMainFile)
+#endif
+		pMainFile->LoadFromFile(filesystem, "gameinfo.txt", "MOD");
+
+	if (pMainFile)
+	{
+		KeyValues* pFileSystemInfo = pMainFile->FindKey("FileSystem");
+		if (pFileSystemInfo)
+			for (KeyValues *pKey = pFileSystemInfo->GetFirstSubKey(); pKey; pKey = pKey->GetNextKey())
+			{
+			if (strcmp(pKey->GetName(), "AdditionalContentId") == 0)
+			{
+				int appid = abs(pKey->GetInt());
+				if (appid)
+					if (filesystem->MountSteamContent(-appid) != FILESYSTEM_MOUNT_OK)
+						Warning("Unable to mount extra content with appId: %i\n", appid);
+			}
+			}
+	}
+	pMainFile->deleteThis();
+}
+//*/
 
 bool CServerGameDLL::DLLInit( CreateInterfaceFn appSystemFactory, 
 		CreateInterfaceFn physicsFactory, CreateInterfaceFn fileSystemFactory, 
@@ -596,7 +625,7 @@ bool CServerGameDLL::DLLInit( CreateInterfaceFn appSystemFactory,
 		return false;
 	if ( (enginesound = (IEngineSound *)appSystemFactory(IENGINESOUND_SERVER_INTERFACE_VERSION, NULL)) == NULL )
 		return false;
-	if ( (::partition = (ISpatialPartition *)appSystemFactory(INTERFACEVERSION_SPATIALPARTITION, NULL)) == NULL )
+	if ( (partition = (ISpatialPartition *)appSystemFactory(INTERFACEVERSION_SPATIALPARTITION, NULL)) == NULL )
 		return false;
 	if ( (modelinfo = (IVModelInfo *)appSystemFactory(VMODELINFO_SERVER_INTERFACE_VERSION, NULL)) == NULL )
 		return false;
@@ -625,11 +654,6 @@ bool CServerGameDLL::DLLInit( CreateInterfaceFn appSystemFactory,
 	if ( IsX360() && (matchmaking = (IMatchmaking *)appSystemFactory( VENGINE_MATCHMAKING_VERSION, NULL )) == NULL )
 		return false;
 
-	if ( !CommandLine()->CheckParm( "-noscripting") )
-	{
-		scriptmanager = (IScriptManager *)appSystemFactory( VSCRIPT_INTERFACE_VERSION, NULL );
-	}
-
 	// If not running dedicated, grab the engine vgui interface
 	if ( !engine->IsDedicatedServer() )
 	{
@@ -642,6 +666,9 @@ bool CServerGameDLL::DLLInit( CreateInterfaceFn appSystemFactory,
 	// Yes, both the client and game .dlls will try to Connect, the soundemittersystem.dll will handle this gracefully
 	if ( !soundemitterbase->Connect( appSystemFactory ) )
 		return false;
+
+	/* BM: Called it; see above */
+	MountAdditionalContent();
 
 	// cache the globals
 	gpGlobals = pGlobals;
@@ -731,6 +758,9 @@ bool CServerGameDLL::DLLInit( CreateInterfaceFn appSystemFactory,
 	}
 
 	InvalidateQueryCache();
+
+	// Parse the particle manifest file & register the effects within it
+	ParseParticleEffects( false, false );
 
 	// try to get debug overlay, may be NULL if on HLDS
 	debugoverlay = (IVDebugOverlay *)appSystemFactory( VDEBUG_OVERLAY_INTERFACE_VERSION, NULL );
@@ -951,14 +981,10 @@ bool CServerGameDLL::IsRestoring()
 	return g_InRestore;
 }
 
-float g_flServerCurTime = 0.0f;
-
 // Called any time a new level is started (after GameInit() also on level transitions within a game)
 bool CServerGameDLL::LevelInit( const char *pMapName, char const *pMapEntities, char const *pOldLevel, char const *pLandmarkName, bool loadGame, bool background )
 {
 	VPROF("CServerGameDLL::LevelInit");
-
-	g_flServerCurTime = gpGlobals->curtime;
 
 #ifdef USES_ECON_ITEMS
 	GameItemSchema_t *pItemSchema = ItemSystem()->GetItemSchema();
@@ -976,9 +1002,6 @@ bool CServerGameDLL::LevelInit( const char *pMapName, char const *pMapEntities, 
 		// Single player games tell xbox live what game & chapter the user is playing
 		UpdateRichPresence();
 	}
-
-	// Parse the particle manifest file & register the effects within it
-	ParseParticleEffects( false, false );
 
 	//Tony; parse custom manifest if exists!
 	ParseParticleEffectsMap( pMapName, false );
@@ -1054,9 +1077,6 @@ bool CServerGameDLL::LevelInit( const char *pMapName, char const *pMapEntities, 
 		LevelInit_ParseAllEntities( pMapEntities );
 	}
 
-	// Check low violence settings for this map
-	g_RagdollLVManager.SetLowViolence( pMapName );
-
 	// Now that all of the active entities have been loaded in, precache any entities who need point_template parameters
 	//  to be parsed (the above code has loaded all point_template entities)
 	PrecachePointTemplates();
@@ -1091,7 +1111,9 @@ bool g_bCheckForChainedActivate;
 	{ \
 		if ( bCheck ) \
 		{ \
-			AssertMsg( g_bReceivedChainedActivate, "Entity (%i/%s/%s) failed to call base class Activate()\n", pClass->entindex(), pClass->GetClassname(), STRING( pClass->GetEntityName() ) );	\
+			char msg[ 1024 ];	\
+			Q_snprintf( msg, sizeof( msg ),  "Entity (%i/%s/%s) failed to call base class Activate()\n", pClass->entindex(), pClass->GetClassname(), STRING( pClass->GetEntityName() ) );	\
+			AssertMsg( g_bReceivedChainedActivate == true, msg ); \
 		} \
 		g_bCheckForChainedActivate = false; \
 	}
@@ -1108,7 +1130,7 @@ void CServerGameDLL::ServerActivate( edict_t *pEdictList, int edictCount, int cl
 
 	if ( gEntList.ResetDeleteList() != 0 )
 	{
-		Msg( "%s", "ERROR: Entity delete queue not empty on level start!\n" );
+		Msg( "ERROR: Entity delete queue not empty on level start!\n" );
 	}
 
 	for ( CBaseEntity *pClass = gEntList.FirstEnt(); pClass != NULL; pClass = gEntList.NextEnt(pClass) )
@@ -1158,7 +1180,6 @@ void CServerGameDLL::ServerActivate( edict_t *pEdictList, int edictCount, int cl
 void CServerGameDLL::GameServerSteamAPIActivated( void )
 {
 #ifndef NO_STEAM
-	steamgameserverapicontext->Clear();
 	steamgameserverapicontext->Init();
 	if ( steamgameserverapicontext->SteamGameServer() && engine->IsDedicatedServer() )
 	{
@@ -1169,7 +1190,6 @@ void CServerGameDLL::GameServerSteamAPIActivated( void )
 #ifdef TF_DLL
 	GCClientSystem()->GameServerActivate();
 	InventoryManager()->GameServerSteamAPIActivated();
-	TFMapsWorkshop()->GameServerSteamAPIActivated();
 #endif
 }
 
@@ -1214,7 +1234,6 @@ void CServerGameDLL::GameFrame( bool simulating )
 		gpGlobals->frametime *= 2.0f;
 	}
 
-	g_flServerCurTime = gpGlobals->curtime;
 	float oldframetime = gpGlobals->frametime;
 
 #ifdef _DEBUG
@@ -1400,12 +1419,6 @@ void CServerGameDLL::LevelShutdown( void )
 
 	// In case we quit out during initial load
 	CBaseEntity::SetAllowPrecache( false );
-
-	// Josh: Uncache all the particle systems on level shutdown
-	// otherwise we leak them constantly on changelevel in the
-	// particle precache stringtable list.
-	g_pParticleSystemMgr->UncacheAllParticleSystems();
-	g_pParticleSystemMgr->RecreateDictionary();
 
 	g_nCurrentChapterIndex = -1;
 
@@ -1913,9 +1926,6 @@ const char *CServerGameDLL::GetServerBrowserMapOverride()
 			return pszFilenameShort;
 		}
 	}
-
-	static char maptmp[256];
-	return GetCleanMapName( STRING( gpGlobals->mapname ), maptmp );
 #endif
 	return NULL;
 }
@@ -1927,89 +1937,24 @@ const char *CServerGameDLL::GetServerBrowserGameData()
 #ifdef TF_DLL
 	sResult.Format( "tf_mm_trusted:%d,tf_mm_servermode:%d", tf_mm_trusted.GetInt(), tf_mm_servermode.GetInt() );
 
-	CMatchInfo *pMatch = GTFGCClientSystem()->GetMatch();
-	if ( !pMatch )
+	CTFLobby *pLobby = GTFGCClientSystem()->GetLobby();
+	if ( pLobby == NULL )
 	{
 		sResult.Append( ",lobby:0" );
 	}
 	else
 	{
-		sResult.Append( CFmtStr( ",lobby:%016llx", pMatch->m_nLobbyID ) );
+		sResult.Append( CFmtStr( ",lobby:%016llx", pLobby->GetGroupID() ) );
 	}
 	if ( TFGameRules() && TFGameRules()->IsMannVsMachineMode() )
 	{
-		bool bMannup = pMatch && pMatch->m_eMatchGroup == k_eTFMatchGroup_MvM_MannUp;
-		sResult.Append( CFmtStr( ",mannup:%d", (int)bMannup ) );
+		sResult.Append( CFmtStr( ",mannup:%d", ( pLobby && pLobby->GetPlayingForBraggingRights() ) ? 1 : 0  ) );
 	}
 #endif
 
 	static char rchResult[2048];
 	V_strcpy_safe( rchResult, sResult );
 	return rchResult;
-}
-
-//-----------------------------------------------------------------------------
-void CServerGameDLL::Status( void (*print) (const char *fmt, ...) )
-{
-	if ( g_pGameRules )
-	{
-		g_pGameRules->Status( print );
-	}
-}
-
-//-----------------------------------------------------------------------------
-void CServerGameDLL::PrepareLevelResources( /* in/out */ char *pszMapName, size_t nMapNameSize,
-                                            /* in/out */ char *pszMapFile, size_t nMapFileSize )
-{
-#ifdef TF_DLL
-	TFMapsWorkshop()->PrepareLevelResources( pszMapName, nMapNameSize, pszMapFile, nMapFileSize );
-#endif // TF_DLL
-}
-
-//-----------------------------------------------------------------------------
-IServerGameDLL::ePrepareLevelResourcesResult
-CServerGameDLL::AsyncPrepareLevelResources( /* in/out */ char *pszMapName, size_t nMapNameSize,
-                                            /* in/out */ char *pszMapFile, size_t nMapFileSize,
-                                            float *flProgress /* = NULL */ )
-{
-#ifdef TF_DLL
-	return TFMapsWorkshop()->AsyncPrepareLevelResources( pszMapName, nMapNameSize, pszMapFile, nMapFileSize, flProgress );
-#endif // TF_DLL
-
-	if ( flProgress )
-	{
-		*flProgress = 1.f;
-	}
-	return IServerGameDLL::ePrepareLevelResources_Prepared;
-}
-
-//-----------------------------------------------------------------------------
-IServerGameDLL::eCanProvideLevelResult CServerGameDLL::CanProvideLevel( /* in/out */ char *pMapName, int nMapNameMax )
-{
-#ifdef TF_DLL
-	return TFMapsWorkshop()->OnCanProvideLevel( pMapName, nMapNameMax );
-#endif // TF_DLL
-	return IServerGameDLL::eCanProvideLevel_CannotProvide;
-}
-
-//-----------------------------------------------------------------------------
-bool CServerGameDLL::IsManualMapChangeOkay( const char **pszReason )
-{
-	if ( GameRules() )
-	{
-		return GameRules()->IsManualMapChangeOkay( pszReason );
-	}
-
-	return true;
-}
-
-//-----------------------------------------------------------------------------
-bool CServerGameDLL::GetWorkshopMap( uint32 uIndex, WorkshopMapDesc_t *pDesc )
-{
-#ifdef TF_DLL
-	return TFMapsWorkshop()->GetWorkshopMapDesc( uIndex, pDesc );
-#endif // TF_DLL
-	return false;
 }
 
 //-----------------------------------------------------------------------------
@@ -2094,6 +2039,8 @@ void CServerGameDLL::LoadSpecificMOTDMsg( const ConVar &convar, const char *pszS
 		bFound = filesystem->ReadFile( szResolvedFilename, "GAME", buf );
 	}
 
+	/* BM: No MOtDs in SP; so quit complaining about it! */
+#ifdef HL2MP
 	if ( !bFound )
 	{
 		Msg( "'%s' not found; not loaded\n", szPreferredFilename );
@@ -2115,6 +2062,8 @@ void CServerGameDLL::LoadSpecificMOTDMsg( const ConVar &convar, const char *pszS
 	{
 		Msg( "Set %s from file '%s'.  ('%s' was not found.)\n", pszStringName, szResolvedFilename, szPreferredFilename );
 	}
+#endif // HL2MP
+	//*/
 
 	g_pStringTableInfoPanel->AddString( CBaseEntity::IsServer(), pszStringName, buf.TellPut(), buf.Base() );
 #endif
@@ -2674,7 +2623,6 @@ void CServerGameEnts::CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned s
 CServerGameClients g_ServerGameClients;
 // INTERFACEVERSION_SERVERGAMECLIENTS_VERSION_3 is compatible with the latest since we're only adding things to the end, so expose that as well.
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CServerGameClients, IServerGameClients003, INTERFACEVERSION_SERVERGAMECLIENTS_VERSION_3, g_ServerGameClients );
-EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CServerGameClients, IServerGameClients004, INTERFACEVERSION_SERVERGAMECLIENTS_VERSION_4, g_ServerGameClients );
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CServerGameClients, IServerGameClients, INTERFACEVERSION_SERVERGAMECLIENTS, g_ServerGameClients );
 
 
@@ -2725,7 +2673,7 @@ void CServerGameClients::ClientActive( edict_t *pEdict, bool bLoadGame )
 
 	#if defined( TF_DLL )
 		Assert( pPlayer );
-		if ( pPlayer && !pPlayer->IsFakeClient() && !pPlayer->IsHLTV() && !pPlayer->IsReplay() )
+		if ( pPlayer && !pPlayer->IsFakeClient() )
 		{
 			CSteamID steamID;
 			if ( pPlayer->GetSteamID( &steamID ) )
@@ -2734,10 +2682,7 @@ void CServerGameClients::ClientActive( edict_t *pEdict, bool bLoadGame )
 			}
 			else
 			{
-				if ( !pPlayer->IsReplay() && !pPlayer->IsHLTV() )
-				{
-					Log("WARNING: ClientActive, but we don't know his SteamID?\n");
-				}
+				Log("WARNING: ClientActive, but we don't know his SteamID?\n");
 			}
 		}
 	#endif
@@ -2811,10 +2756,7 @@ void CServerGameClients::ClientDisconnect( edict_t *pEdict )
 				}
 				else
 				{
-					if ( !player->IsReplay() && !player->IsHLTV() )
-					{
-						Log("WARNING: ClientDisconnected, but we don't know his SteamID?\n");
-					}
+					Log("WARNING: ClientDisconnected, but we don't know his SteamID?\n");
 				}
 			}
 		#endif
@@ -2848,11 +2790,75 @@ void CServerGameClients::ClientSettingsChanged( edict_t *pEdict )
 		return;
 
 	CBasePlayer *player = ( CBasePlayer * )CBaseEntity::Instance( pEdict );
-
+	
 	if ( !player )
 		return;
 
-	player->ClientSettingsChanged();
+	bool bAllowNetworkingClientSettingsChange = g_pGameRules->IsConnectedUserInfoChangeAllowed( player );
+	if ( bAllowNetworkingClientSettingsChange )
+	{
+
+#define QUICKGETCVARVALUE(v) (engine->GetClientConVarValue( player->entindex(), v ))
+
+	// get network setting for prediction & lag compensation
+	
+	// Unfortunately, we have to duplicate the code in cdll_bounded_cvars.cpp here because the client
+	// doesn't send the virtualized value up (because it has no way to know when the virtualized value
+	// changes). Possible todo: put the responsibility on the bounded cvar to notify the engine when
+	// its virtualized value has changed.		
+	
+	player->m_nUpdateRate = Q_atoi( QUICKGETCVARVALUE("cl_updaterate") );
+	static const ConVar *pMinUpdateRate = g_pCVar->FindVar( "sv_minupdaterate" );
+	static const ConVar *pMaxUpdateRate = g_pCVar->FindVar( "sv_maxupdaterate" );
+	if ( pMinUpdateRate && pMaxUpdateRate )
+		player->m_nUpdateRate = clamp( player->m_nUpdateRate, (int) pMinUpdateRate->GetFloat(), (int) pMaxUpdateRate->GetFloat() );
+
+	bool useInterpolation = Q_atoi( QUICKGETCVARVALUE("cl_interpolate") ) != 0;
+	if ( useInterpolation )
+	{
+		float flLerpRatio = Q_atof( QUICKGETCVARVALUE("cl_interp_ratio") );
+		if ( flLerpRatio == 0 )
+			flLerpRatio = 1.0f;
+		float flLerpAmount = Q_atof( QUICKGETCVARVALUE("cl_interp") );
+
+		static const ConVar *pMin = g_pCVar->FindVar( "sv_client_min_interp_ratio" );
+		static const ConVar *pMax = g_pCVar->FindVar( "sv_client_max_interp_ratio" );
+		if ( pMin && pMax && pMin->GetFloat() != -1 )
+		{
+			flLerpRatio = clamp( flLerpRatio, pMin->GetFloat(), pMax->GetFloat() );
+		}
+		else
+		{
+			if ( flLerpRatio == 0 )
+				flLerpRatio = 1.0f;
+		}
+		// #define FIXME_INTERP_RATIO
+		player->m_fLerpTime = MAX( flLerpAmount, flLerpRatio / player->m_nUpdateRate );
+	}
+	else
+	{
+		player->m_fLerpTime = 0.0f;
+	}
+	
+#if !defined( NO_ENTITY_PREDICTION )
+	bool usePrediction = Q_atoi( QUICKGETCVARVALUE("cl_predict")) != 0;
+
+	if ( usePrediction )
+	{
+		player->m_bPredictWeapons  = Q_atoi( QUICKGETCVARVALUE("cl_predictweapons")) != 0;
+		player->m_bLagCompensation = Q_atoi( QUICKGETCVARVALUE("cl_lagcompensation")) != 0;
+	}
+	else
+#endif
+	{
+		player->m_bPredictWeapons  = false;
+		player->m_bLagCompensation = false;
+	}
+	
+
+#undef QUICKGETCVARVALUE
+	}
+
 	g_pGameRules->ClientSettingsChanged( player );
 }
 
@@ -3028,8 +3034,6 @@ void CServerGameClients::ClientSetupVisibility( edict_t *pViewEntity, edict_t *p
 //-----------------------------------------------------------------------------
 #define CMD_MAXBACKUP 64
 
-static ConVar sv_max_usercmd_move_magnitude( "sv_max_usercmd_move_magnitude", "1000", 0, "Maximum move magnitude that can be requested by client." );	
-
 float CServerGameClients::ProcessUsercmds( edict_t *player, bf_read *buf, int numcmds, int totalcmds,
 	int dropped_packets, bool ignore, bool paused )
 {
@@ -3052,7 +3056,7 @@ float CServerGameClients::ProcessUsercmds( edict_t *player, bf_read *buf, int nu
 		pPlayer = static_cast< CBasePlayer * >( pEnt );
 	}
 	// Too many commands?
-	if ( totalcmds < 0 || totalcmds >= ( CMD_MAXBACKUP - 1 ) || numcmds < 0 || numcmds > totalcmds )
+	if ( totalcmds < 0 || totalcmds >= ( CMD_MAXBACKUP - 1 ) )
 	{
 		const char *name = "unknown";
 		if ( pPlayer )
@@ -3075,15 +3079,6 @@ float CServerGameClients::ProcessUsercmds( edict_t *player, bf_read *buf, int nu
 		to = &cmds[ i ];
 		ReadUsercmd( buf, to, from );
 		from = to;
-
-		if ( ( fabs( to->forwardmove ) > sv_max_usercmd_move_magnitude.GetFloat() ) ||
-			( fabs( to->sidemove ) > sv_max_usercmd_move_magnitude.GetFloat() ) ||
-			( fabs( to->upmove ) > sv_max_usercmd_move_magnitude.GetFloat() ) )
-		{
-			to->forwardmove = 0;
-			to->sidemove = 0;
-			to->upmove = 0;
-		}
 	}
 
 	// Client not fully connected or server has gone inactive  or is paused, just ignore
@@ -3195,21 +3190,6 @@ void CServerGameClients::GetBugReportInfo( char *buf, int buflen )
 			}
 			Q_snprintf( buf, buflen, "%sCurrent time: %6.3f\n", buf, gpGlobals->curtime );
 		}
-	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: A player sent a voice packet
-//-----------------------------------------------------------------------------
-void CServerGameClients::ClientVoice( edict_t *pEdict )
-{
-	CBasePlayer *pPlayer = ( CBasePlayer * )CBaseEntity::Instance( pEdict );
-	if (pPlayer)
-	{
-		pPlayer->OnVoiceTransmit();
-		
-		// Notify the voice listener that we've spoken
-		PlayerVoiceListener().AddPlayerSpeakTime( pPlayer );
 	}
 }
 
@@ -3386,7 +3366,7 @@ void MessageWriteEHandle( CBaseEntity *pEntity )
 	{
 		EHANDLE hEnt = pEntity;
 
-		int iSerialNum = hEnt.GetSerialNumber() & ( (1 << NUM_NETWORKED_EHANDLE_SERIAL_NUMBER_BITS) - 1 );
+		int iSerialNum = hEnt.GetSerialNumber() & (1 << NUM_NETWORKED_EHANDLE_SERIAL_NUMBER_BITS) - 1;
 		iEncodedEHandle = hEnt.GetEntryIndex() | (iSerialNum << MAX_EDICT_BITS);
 	}
 	else

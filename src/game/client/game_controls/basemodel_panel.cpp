@@ -10,24 +10,18 @@
 #include "animation.h"
 #include "vgui/IInput.h"
 #include "matsys_controls/manipulator.h"
-#include "bone_setup.h"
 
 using namespace vgui;
-extern float GetAutoPlayTime( void );
 DECLARE_BUILD_FACTORY( CBaseModelPanel );
 
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
-CBaseModelPanel::CBaseModelPanel( vgui::Panel *pParent, const char *pName )
-	: BaseClass( pParent, pName )
-	, m_nActiveSequence( ACT_INVALID )
-	, m_flActiveSequenceDuration( 0.f )
+CBaseModelPanel::CBaseModelPanel( vgui::Panel *pParent, const char *pName ): BaseClass( pParent, pName )
 {
 	m_bForcePos = false;
 	m_bMousePressed = false;
 	m_bAllowRotation = false;
-	m_bAllowPitch = false;
 	m_bAllowFullManipulation = false;
 	m_bApplyManipulators = false;
 	m_bForcedCameraPosition = false;
@@ -49,7 +43,6 @@ void CBaseModelPanel::ApplySettings( KeyValues *inResourceData )
 
 	// Set whether we render to texture
 	m_bRenderToTexture = inResourceData->GetBool( "render_texture", true );
-	m_bUseParticle = inResourceData->GetBool( "use_particle", false );
 
 	// Grab and set the camera FOV.
 	float flFOV = GetCameraFOV();
@@ -58,17 +51,9 @@ void CBaseModelPanel::ApplySettings( KeyValues *inResourceData )
 
 	// Do we allow rotation on these panels.
 	m_bAllowRotation = inResourceData->GetBool( "allow_rot", false );
-	m_bAllowPitch = inResourceData->GetBool( "allow_pitch", false );
 
 	// Do we allow full manipulation on these panels.
 	m_bAllowFullManipulation = inResourceData->GetBool( "allow_manip", false );
-
-	// Continued velocity after the user releases the mouse after a manipulation
-	m_bUseVelocity = inResourceData->GetBool( "continued_velocity", true );
-	// Don't use velocity if full manipulation is on.  It breaks.
-	m_bUseVelocity &= !m_bAllowFullManipulation;
-	m_flYawVelocityDecay  = inResourceData->GetFloat( "yaw_velocity_decay", 12.f );
-	m_flPitchVelocityDecay  = inResourceData->GetFloat( "pitch_velocity_decay", 12.f );
 
 	// Parse our resource file and apply all necessary updates to the MDL.
  	for ( KeyValues *pData = inResourceData->GetFirstSubKey() ; pData != NULL ; pData = pData->GetNextKey() )
@@ -79,7 +64,7 @@ void CBaseModelPanel::ApplySettings( KeyValues *inResourceData )
  		}
  	}
 
-	SetMouseInputEnabled( m_bAllowFullManipulation || m_bAllowRotation || m_bAllowPitch );
+	SetMouseInputEnabled( m_bAllowFullManipulation || m_bAllowRotation );
 }
 
 //-----------------------------------------------------------------------------
@@ -112,8 +97,6 @@ void CBaseModelPanel::ParseModelResInfo( KeyValues *inResourceData )
 			ParseModelAttachInfo( pData );
 		}
 	}
-
-	SetupModelDefaults();
 }
 
 //-----------------------------------------------------------------------------
@@ -131,7 +114,7 @@ void CBaseModelPanel::ParseModelAnimInfo( KeyValues *inResourceData )
 	m_BMPResData.m_aAnimations[iAnim].m_pszName = ReadAndAllocStringValue( inResourceData, "name" );
 	m_BMPResData.m_aAnimations[iAnim].m_pszSequence = ReadAndAllocStringValue( inResourceData, "sequence" );
 	m_BMPResData.m_aAnimations[iAnim].m_pszActivity = ReadAndAllocStringValue( inResourceData, "activity" );
-	m_BMPResData.m_aAnimations[iAnim].m_bDefault = inResourceData->GetBool( "default" );
+	m_BMPResData.m_aAnimations[iAnim].m_bDefault = ( inResourceData->GetInt( "default", 0 ) == 1 );
 
 	for ( KeyValues *pAnimData = inResourceData->GetFirstSubKey(); pAnimData != NULL; pAnimData = pAnimData->GetNextKey() )
 	{
@@ -274,7 +257,7 @@ void CBaseModelPanel::SetModelAnim( int iAnim )
 
 	if ( iSequence != ACT_INVALID )
 	{
-		SetSequence( iSequence, true );
+		SetSequence( iSequence );
 	}
 }
 
@@ -399,53 +382,6 @@ void CBaseModelPanel::PerformLayout()
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-void CBaseModelPanel::OnTick()
-{
-	// Cycle stuff gets handled in mdlpanel::OnTick, so we want to fix up
-	// what our sequence is before it gets called.
-
-	// Check if we have a active sequence, and if it's expired and we need
-	// to run our default
-	if ( m_nActiveSequence != ACT_INVALID )
-	{
-		float flElapsedTime = GetAutoPlayTime() - m_RootMDL.m_flCycleStartTime;
-		if ( flElapsedTime >= m_flActiveSequenceDuration )
-		{
-			m_nActiveSequence = ACT_INVALID;
-			m_flActiveSequenceDuration = 0.f;
-
-			SetupModelDefaults();
-		}
-	}
-
-	BaseClass::OnTick();
-}
-
-void CBaseModelPanel::OnThink()
-{
-	BaseClass::OnThink();
-
-	float flDt = 0.f;
-	if ( m_flLastThink != 0.f )
-	{
-		flDt = Plat_FloatTime() - m_flLastThink;
-	}
-	m_flLastThink = Plat_FloatTime();
-
-	if ( !m_bMousePressed && m_bUseVelocity )
-	{
-		RotateYaw( m_flYawVelocity );
-		RotatePitch( m_flPitchVelocity );
-
-		// Decay
-		m_flYawVelocity *= 1.f - Clamp( m_flYawVelocityDecay * flDt, 0.f, 1.f );
-		m_flPitchVelocity *= 1.f - Clamp( m_flPitchVelocityDecay * flDt, 0.f, 1.f );
-	}
-}
-
-
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
 void CBaseModelPanel::OnKeyCodePressed ( vgui::KeyCode code )
 {
 	if ( m_bAllowFullManipulation )
@@ -476,15 +412,12 @@ void CBaseModelPanel::OnMousePressed ( vgui::MouseCode code )
 		return;
 	}
 
-	if ( !m_bAllowRotation && !m_bAllowPitch )
+	if ( !m_bAllowRotation )
 		return;
 
 	RequestFocus();
 
 	EnableMouseCapture( true, code );
-
-	// Save where they clicked
-	input()->GetCursorPosition( m_nClickStartX, m_nClickStartY );
 
 	// Warp the mouse to the center of the screen
 	int width, height;
@@ -513,14 +446,11 @@ void CBaseModelPanel::OnMouseReleased( vgui::MouseCode code )
 		return;
 	}
 
-	if ( !m_bAllowRotation && !m_bAllowPitch )
+	if ( !m_bAllowRotation )
 		return;
 
 	EnableMouseCapture( false );
 	m_bMousePressed = false;
-
-	// Restore the cursor to where the clicked
-	input()->SetCursorPos( m_nClickStartX, m_nClickStartY );
 }
 
 //-----------------------------------------------------------------------------
@@ -537,7 +467,7 @@ void CBaseModelPanel::OnCursorMoved( int x, int y )
 		return;
 	}
 
-	if ( !m_bAllowRotation && !m_bAllowPitch )
+	if ( !m_bAllowRotation )
 		return;
 
 	if ( m_bMousePressed )
@@ -546,27 +476,11 @@ void CBaseModelPanel::OnCursorMoved( int x, int y )
 		int xpos, ypos;
 		input()->GetCursorPos( xpos, ypos );
 
-		if ( m_bAllowRotation )
-		{
-			// Only want the x delta.
-			float flDelta = xpos - m_nManipStartX;
+		// Only want the x delta.
+		float flDelta = xpos - m_nManipStartX;
 
-
-			// Apply the delta and rotate the player.
-			RotateYaw( flDelta );
-			m_flYawVelocity = flDelta;
-		}
-
-		if ( m_bAllowPitch )
-		{
-			// Only want the y delta.
-			float flDelta = ypos - m_nManipStartY;
-
-
-			// Apply the delta and rotate the player.
-			RotatePitch( flDelta );
-			m_flPitchVelocity = flDelta;
-		}
+		// Apply the delta and rotate the player.
+		RotateYaw( flDelta );
 	}
 }
 
@@ -589,23 +503,6 @@ void CBaseModelPanel::RotateYaw( float flDelta )
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-void CBaseModelPanel::RotatePitch( float flDelta )
-{
-	m_angPlayer.x += flDelta;
-	if ( m_angPlayer.x > m_flMaxPitch )
-	{
-		m_angPlayer.x = m_flMaxPitch;
-	}
-	else if ( m_angPlayer.x < -m_flMaxPitch )
-	{
-		m_angPlayer.x = -m_flMaxPitch;
-	}
-
-	SetModelAnglesAndPosition( m_angPlayer, m_vecPlayerPos );
-}
-
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
 Vector CBaseModelPanel::GetPlayerPos() const
 {
 	return m_vecPlayerPos;
@@ -616,20 +513,6 @@ Vector CBaseModelPanel::GetPlayerPos() const
 QAngle CBaseModelPanel::GetPlayerAngles() const
 {
 	return m_angPlayer;
-}
-
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-void CBaseModelPanel::PlaySequence( const char *pszSequenceName )
-{
-	CStudioHdr studioHDR( GetStudioHdr(), g_pMDLCache );
-	int iSeq = ::LookupSequence( &studioHDR, pszSequenceName );
-	if ( iSeq != ACT_INVALID )
-	{
-		m_nActiveSequence = iSeq;
-		m_flActiveSequenceDuration = Studio_Duration( &studioHDR, iSeq, NULL );
-		SetSequence( m_nActiveSequence, true );
-	}
 }
 
 //-----------------------------------------------------------------------------
@@ -760,158 +643,11 @@ void CBaseModelPanel::LookAtBounds( const Vector &vecBoundsMin, const Vector &ve
 
 	// Clear the camera pivot and set position matrix.
 	ResetCameraPivot();
-	if (m_bAllowRotation || m_bAllowPitch )
+	if (m_bAllowRotation )
 	{
 		vecCameraOffset.x = 0.0f;
 	}
 	SetCameraOffset( Vector( 0.0f, -vecCameraOffset.x, -vecCameraOffset.y ) );
 	UpdateCameraTransform();
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose:
-//-----------------------------------------------------------------------------
-CBaseModelPanel::particle_data_t::~particle_data_t()
-{
-	if ( m_pParticleSystem )
-	{
-		delete m_pParticleSystem;
-		m_pParticleSystem = NULL;
-	}
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Allocate particle data
-//-----------------------------------------------------------------------------
-void CBaseModelPanel::particle_data_t::UpdateControlPoints( CStudioHdr *pStudioHdr, matrix3x4_t *pWorldMatrix, const CUtlVector< int >& vecAttachments, int iDefaultBone /*= 0*/, const Vector& vecParticleOffset /*= vec3_origin*/ )
-{
-	if ( m_pParticleSystem )
-	{
-		// Update control points which is updating the position of the particles
-		matrix3x4_t matAttachToWorld;
-		Vector vecPosition, vecForward, vecRight, vecUp;
-		if ( vecAttachments.Count() )
-		{
-			for ( int i = 0; i < vecAttachments.Count(); ++i )
-			{
-				const mstudioattachment_t& attach = pStudioHdr->pAttachment( vecAttachments[i] ); 
-				MatrixMultiply( pWorldMatrix[ attach.localbone ], attach.local, matAttachToWorld );
-
-				MatrixVectors( matAttachToWorld, &vecForward, &vecRight, &vecUp );
-				MatrixPosition( matAttachToWorld, vecPosition );
-
-				m_pParticleSystem->SetControlPointOrientation( i, vecForward, vecRight, vecUp );
-				m_pParticleSystem->SetControlPoint( i, vecPosition + vecParticleOffset );
-			}
-		}
-		else
-		{
-			matAttachToWorld = pWorldMatrix[iDefaultBone];
-			MatrixVectors( matAttachToWorld, &vecForward, &vecRight, &vecUp );
-			MatrixPosition( matAttachToWorld, vecPosition );
-			
-			m_pParticleSystem->SetControlPointOrientation( 0, vecForward, vecRight, vecUp );
-			m_pParticleSystem->SetControlPoint( 0, vecPosition + vecParticleOffset );
-		}
-	}
-
-	m_bIsUpdateToDate = true;
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Allocate particle data
-//-----------------------------------------------------------------------------
-CBaseModelPanel::particle_data_t *CBaseModelPanel::CreateParticleData( const char *pszParticleName )
-{
-	Assert( m_bUseParticle );
-	if ( !m_bUseParticle )
-		return NULL;
-
-	CParticleCollection *pParticle = g_pParticleSystemMgr->CreateParticleCollection( pszParticleName );
-	if ( !pParticle )
-		return NULL;
-
-	particle_data_t *pData = new particle_data_t;
-	pData->m_bIsUpdateToDate = false;
-	pData->m_pParticleSystem = pParticle;
-
-	m_particleList.AddToTail( pData );
-
-	return pData;
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: remove and delete particle data
-//-----------------------------------------------------------------------------
-bool CBaseModelPanel::SafeDeleteParticleData( particle_data_t **pData )
-{
-	if ( !m_bUseParticle )
-		return false;
-
-	if ( *pData )
-	{
-		FOR_EACH_VEC( m_particleList, i )
-		{
-			if ( *pData == m_particleList[i] )
-			{
-				delete *pData;
-				*pData = NULL;
-				m_particleList.FastRemove( i );
-				return true;
-			}
-		}
-	}
-	return false;
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-void CBaseModelPanel::PrePaint3D( IMatRenderContext *pRenderContext )
-{
-	if ( !m_bUseParticle )
-		return;
-
-	// mark all effects need to be updated
-	FOR_EACH_VEC( m_particleList, i )
-	{
-		m_particleList[i]->m_bIsUpdateToDate = false;
-	}
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-void CBaseModelPanel::PostPaint3D( IMatRenderContext *pRenderContext )
-{
-	if ( !m_bUseParticle )
-		return;
-
-	// This needs calling to reset various counters.
-	g_pParticleSystemMgr->SetLastSimulationTime( gpGlobals->curtime );
-
-	// Render Particles
-	pRenderContext->MatrixMode( MATERIAL_MODEL );
-	pRenderContext->PushMatrix();
-	pRenderContext->LoadIdentity( );
-
-	FOR_EACH_VEC( m_particleList, i )
-	{
-		if ( m_particleList[i]->m_bIsUpdateToDate )
-		{
-			m_particleList[i]->m_pParticleSystem->Simulate( gpGlobals->frametime, false );
-			m_particleList[i]->m_pParticleSystem->Render( pRenderContext );
-			m_particleList[i]->m_bIsUpdateToDate = false;
-		}
-	}
-
-	pRenderContext->MatrixMode( MATERIAL_MODEL );
-	pRenderContext->PopMatrix();
 }
 

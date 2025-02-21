@@ -58,7 +58,7 @@ END_DATADESC()
 CVGuiScreen::CVGuiScreen()
 {
 	m_nOverlayMaterial = OVERLAY_MATERIAL_INVALID_STRING;
-	m_hPlayerOwner = INVALID_EHANDLE;
+	m_hPlayerOwner = NULL;
 }
 
 

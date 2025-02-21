@@ -46,7 +46,6 @@ public:
 	DECLARE_SERVERCLASS();
 	DECLARE_DATADESC();
 	DECLARE_PREDICTABLE();
-	DECLARE_ENT_SCRIPTDESC();
 
 	// Construction
 						CBaseFlex( void );
@@ -140,14 +139,6 @@ protected:
 
 	LocalFlexController_t	FlexControllerLocalToGlobal( const flexsettinghdr_t *pSettinghdr, int key );
 
-public:
-#if 0
-	// Returns the script instance of the scene entity associated with our oldest ("top level") scene event
-	HSCRIPT		ScriptGetOldestScene( void );
-	HSCRIPT		ScriptGetSceneByIndex( int index );
-#endif
-	float		ScriptPlayScene( const char *pszScene, float flDelay = 0.0f );
-
 private:
 	// Starting various expression types 
 
@@ -190,16 +181,16 @@ private:
 	struct FS_LocalToGlobal_t
 	{
 		explicit FS_LocalToGlobal_t() :
-			m_Key( nullptr ),
+			m_Key( 0 ),
 			m_nCount( 0 ),
-			m_Mapping( nullptr )
+			m_Mapping( 0 )
 		{
 		}
 
 		explicit FS_LocalToGlobal_t( const flexsettinghdr_t *key ) :
 			m_Key( key ),
 			m_nCount( 0 ),
-			m_Mapping( nullptr )
+			m_Mapping( 0 )
 		{
 		}		
 
@@ -215,6 +206,7 @@ private:
 		FS_LocalToGlobal_t( const FS_LocalToGlobal_t& src )
 		{
 			m_Key = src.m_Key;
+			delete m_Mapping;
 			m_Mapping = new LocalFlexController_t[ src.m_nCount ];
 			Q_memcpy( m_Mapping, src.m_Mapping, src.m_nCount * sizeof( int ) );
 
@@ -228,9 +220,9 @@ private:
 			m_Mapping = 0;
 		}
 
-		const flexsettinghdr_t	*m_Key = nullptr;
-		int						m_nCount = 0;
-		LocalFlexController_t	*m_Mapping = nullptr;
+		const flexsettinghdr_t	*m_Key;
+		int						m_nCount;
+		LocalFlexController_t	*m_Mapping;	
 	};
 
 	static bool FlexSettingLessFunc( const FS_LocalToGlobal_t& lhs, const FS_LocalToGlobal_t& rhs );

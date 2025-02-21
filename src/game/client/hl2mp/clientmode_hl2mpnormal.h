@@ -18,6 +18,11 @@
 
 class CHudViewport;
 
+namespace vgui
+{
+	typedef unsigned long HScheme;
+}
+
 
 //-----------------------------------------------------------------------------
 // Purpose: 

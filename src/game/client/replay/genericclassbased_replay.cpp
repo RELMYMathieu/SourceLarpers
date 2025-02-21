@@ -141,7 +141,7 @@ bool CGenericClassBasedReplay::Read( KeyValues *pIn )
 
 	// Read killer info
 	m_nKillerClass = pIn->GetInt( "killer_class" );
-	V_strcpy_safe( m_szKillerName, pIn->GetString( "killer_name" ) );
+	V_strcpy( m_szKillerName, pIn->GetString( "killer_name" ) );
 
 	// Make sure vector is clear
 	Assert( GetKillCount() == 0 );
@@ -283,13 +283,13 @@ void CGenericClassBasedReplay::AddKill( const char *pPlayerName, int nPlayerClas
 {
 	KillData_t *pNewKillData = new KillData_t;
 
-	V_strcpy_safe( pNewKillData->m_szPlayerName , pPlayerName );
+	V_strcpy( pNewKillData->m_szPlayerName , pPlayerName );
 	pNewKillData->m_nPlayerClass = nPlayerClass;
 
 	ConVarRef replay_debug( "replay_debug" );
 	if ( replay_debug.IsValid() && replay_debug.GetBool() )
 	{
-		DevMsg( "\n\nRecorded kill: name=%s, class=%s (this=%p)\n\n", pPlayerName, GetPlayerClass( nPlayerClass ), this );
+		DevMsg( "\n\nRecorded kill: name=%s, class=%s (this=%i)\n\n", pPlayerName, GetPlayerClass( nPlayerClass ), (int)this );
 	}
 
 	m_vecKills.AddToTail( pNewKillData );
@@ -416,7 +416,7 @@ void CGenericClassBasedReplay::SetPlayerTeam( int nPlayerTeam )
 
 void CGenericClassBasedReplay::RecordPlayerDeath( const char *pKillerName, int nKillerClass )
 {
-	V_strcpy_safe( m_szKillerName, pKillerName );
+	V_strcpy( m_szKillerName, pKillerName );
 	m_nKillerClass = nKillerClass;
 }
 

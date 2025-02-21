@@ -153,7 +153,6 @@ BEGIN_DATADESC( CBreakable )
 	DEFINE_FIELD( m_iszPropData, FIELD_STRING ),
 	DEFINE_INPUT( m_impactEnergyScale, FIELD_FLOAT, "physdamagescale" ),
 	DEFINE_KEYFIELD( m_PerformanceMode, FIELD_INTEGER, "PerformanceMode" ),
-	DEFINE_KEYFIELD( m_nTeamNumber, FIELD_INTEGER, "team_number" ),
 
 	DEFINE_INPUTFUNC( FIELD_VOID, "Break", InputBreak ),
 	DEFINE_INPUTFUNC( FIELD_INTEGER, "SetHealth", InputSetHealth ),
@@ -187,8 +186,6 @@ BEGIN_DATADESC( CBreakable )
 	DEFINE_FIELD( m_flLastPhysicsInfluenceTime, FIELD_TIME ),
 
 END_DATADESC()
-
-IMPLEMENT_AUTO_LIST( IBreakablePropAutoList );
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -304,8 +301,6 @@ void CBreakable::Spawn( void )
 	}
 
 	CreateVPhysics();
-
-	ChangeTeam( m_nTeamNumber );
 }
 
 //-----------------------------------------------------------------------------
@@ -822,6 +817,8 @@ void CBreakable::VPhysicsCollision( int index, gamevcollisionevent_t *pEvent )
 //-----------------------------------------------------------------------------
 int CBreakable::OnTakeDamage( const CTakeDamageInfo &info )
 {
+	Vector	vecTemp;
+
 	CTakeDamageInfo subInfo = info;
 
 	// If attacker can't do at least the min required damage to us, don't take any damage from them
@@ -834,6 +831,8 @@ int CBreakable::OnTakeDamage( const CTakeDamageInfo &info )
 		m_bTookPhysicsDamage = false;
 		return 1;
 	}
+
+	vecTemp = subInfo.GetInflictor()->GetAbsOrigin() - WorldSpaceCenter();
 
 	if (!IsBreakable())
 		return 0;

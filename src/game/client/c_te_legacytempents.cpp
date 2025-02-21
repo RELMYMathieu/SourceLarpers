@@ -153,7 +153,7 @@ void C_LocalTempEntity::SetAcceleration( const Vector &vecVelocity )
 // Purpose: 
 // Output : int
 //-----------------------------------------------------------------------------
-int C_LocalTempEntity::DrawStudioModel( int modelFlags )
+int C_LocalTempEntity::DrawStudioModel( int flags )
 {
 	VPROF_BUDGET( "C_LocalTempEntity::DrawStudioModel", VPROF_BUDGETGROUP_MODEL_RENDERING );
 	int drawn = 0;
@@ -168,12 +168,12 @@ int C_LocalTempEntity::DrawStudioModel( int modelFlags )
 
 	if ( m_pfnDrawHelper )
 	{
-		drawn = ( *m_pfnDrawHelper )( this, modelFlags);
+		drawn = ( *m_pfnDrawHelper )( this, flags );
 	}
 	else
 	{
 		drawn = modelrender->DrawModel( 
-			modelFlags,
+			flags, 
 			this,
 			MODEL_INSTANCE_INVALID,
 			index, 
@@ -191,7 +191,7 @@ int C_LocalTempEntity::DrawStudioModel( int modelFlags )
 // Purpose: 
 // Input  : flags - 
 //-----------------------------------------------------------------------------
-int	C_LocalTempEntity::DrawModel( int modelFlags )
+int	C_LocalTempEntity::DrawModel( int flags )
 {
 	int drawn = 0;
 
@@ -238,7 +238,7 @@ int	C_LocalTempEntity::DrawModel( int modelFlags )
 			);
 		break;
 	case mod_studio:
-		drawn = DrawStudioModel( modelFlags );
+		drawn = DrawStudioModel( flags );
 		break;
 	default:
 		break;
@@ -1097,61 +1097,32 @@ void CTempEnts::BreakModel( const Vector &pos, const QAngle &angles, const Vecto
 	}
 }
 
-void CTempEnts::PhysicsProp( int modelindex, int skin, const Vector& pos, const QAngle& angles, const Vector& vel, int physFlags, int physEffects )
+void CTempEnts::PhysicsProp( int modelindex, int skin, const Vector& pos, const QAngle &angles, const Vector& vel, int flags, int effects )
 {
-	const model_t* model = modelinfo->GetModel( modelindex );
+	C_PhysPropClientside *pEntity = C_PhysPropClientside::CreateNew();
+	
+	if ( !pEntity )
+		return;
+
+	const model_t *model = modelinfo->GetModel( modelindex );
+
 	if ( !model )
 	{
 		DevMsg("CTempEnts::PhysicsProp: model index %i not found\n", modelindex );
 		return;
 	}
 
-	PhysicsProp( model, skin, pos, angles, vel, physFlags, physEffects, modelindex );
-}
-
-C_PhysPropClientside *CTempEnts::PhysicsProp( const model_t *model, int skin, const Vector& pos, const QAngle &angles, const Vector& vel, int physFlags, int physEffects, int modelindex )
-{
-	C_PhysPropClientside *pEntity = C_PhysPropClientside::CreateNew();
-	
-	if ( !pEntity )
-		return NULL;
-
-	if ( !model )
-		return NULL;
-
 	pEntity->SetModelName( modelinfo->GetModelName(model) );
 	pEntity->m_nSkin = skin;
 	pEntity->SetAbsOrigin( pos );
 	pEntity->SetAbsAngles( angles );
 	pEntity->SetPhysicsMode( PHYSICS_MULTIPLAYER_CLIENTSIDE );
-	pEntity->SetEffects( physEffects );
-
-	if ( physFlags & 1 )
-	{
-		if ( modelindex >= 0 )
-			pEntity->SetModelIndex( modelindex );
-
-		// We are not calling initialize on this entity here, so we need to manually set some of the required values otherwise set in initialize.
-		pEntity->SetCollisionGroup( COLLISION_GROUP_PUSHAWAY );
-		pEntity->SetAbsVelocity( vel );
-		const model_t *mod = pEntity->GetModel();
-		if ( mod )
-		{
-			Vector mins, maxs;
-			modelinfo->GetModelBounds( mod, mins, maxs );
-			pEntity->SetCollisionBounds( mins, maxs );
-		}
-
-		pEntity->Spawn();
-		pEntity->SetHealth( 0 );
-		pEntity->Break();
-		return pEntity;
-	}
+	pEntity->SetEffects( effects );
 
 	if ( !pEntity->Initialize() )
 	{
 		pEntity->Release();
-		return NULL;
+		return;
 	}
 
 	IPhysicsObject *pPhysicsObject = pEntity->VPhysicsGetObject();
@@ -1164,16 +1135,14 @@ C_PhysPropClientside *CTempEnts::PhysicsProp( const model_t *model, int skin, co
 	{
 		// failed to create a physics object
 		pEntity->Release();
-		return NULL;
+		return;
 	}
 
-	if ( physFlags & 1 )
+	if ( flags & 1 )
 	{
 		pEntity->SetHealth( 0 );
 		pEntity->Break();
 	}
-
-	return pEntity;
 }
 
 //-----------------------------------------------------------------------------
@@ -1570,7 +1539,7 @@ void CTempEnts::BloodSprite( const Vector &org, int r, int g, int b, int a, int 
 	{
 		C_LocalTempEntity		*pTemp;
 		int						frameCount = modelinfo->GetModelFrameCount( model );
-		color32					impactcolor = { (byte)r, (byte)g, (byte)b, (byte)a };
+		color32					impactcolor = { r, g, b, a };
 
 		//Large, single blood sprite is a high-priority tent
 		if ( ( pTemp = TempEntAllocHigh( org, model ) ) != NULL )
@@ -2972,6 +2941,7 @@ void CTempEnts::MuzzleFlash_Shotgun_NPC( ClientEntityHandle_t hEntity, int attac
 	QAngle	angles;
 
 	Vector	forward;
+	int		i;
 
 	// Setup the origin.
 	Vector	origin;
@@ -3038,7 +3008,7 @@ void CTempEnts::MuzzleFlash_Shotgun_NPC( ClientEntityHandle_t hEntity, int attac
 
 	int	numEmbers = random->RandomInt( 4, 8 );
 
-	for ( int i = 0; i < numEmbers; i++ )
+	for ( i = 0; i < numEmbers; i++ )
 	{
 		pTrailParticle = (TrailParticle *) pTrails->AddParticle( sizeof( TrailParticle ), g_Mat_SMG_Muzzleflash[0], origin );
 			

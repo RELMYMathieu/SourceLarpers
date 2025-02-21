@@ -116,9 +116,7 @@ class CControlPointIconSwoop : public vgui::ImagePanel, public CGameEventListene
 {
 	DECLARE_CLASS_SIMPLE( CControlPointIconSwoop, vgui::ImagePanel );
 public:
-	CControlPointIconSwoop(Panel *parent, const char *name, bool bDown = true ) 
-		: vgui::ImagePanel( parent, name )
-		, m_bDown( bDown )
+	CControlPointIconSwoop(Panel *parent, const char *name) : vgui::ImagePanel( parent, name )
 	{
 		SetImage( "../sprites/obj_icons/capture_highlight" );
 		SetShouldScaleImage( true );
@@ -132,8 +130,7 @@ public:
 		if (GetImage())
 		{
 			surface()->DrawSetColor(255, 255, 255, 255);
-			int iYPos =  m_bDown ? RemapValClamped( flElapsedTime, 0, STARTCAPANIM_SWOOP_LENGTH, 0, GetTall() )
-								 : RemapValClamped( flElapsedTime, 0, STARTCAPANIM_SWOOP_LENGTH, 0, -GetTall() );
+			int iYPos = RemapValClamped( flElapsedTime, 0, STARTCAPANIM_SWOOP_LENGTH, 0, GetTall() );
 			GetImage()->SetPos( 0, iYPos );
 			GetImage()->Paint();
 		}
@@ -168,7 +165,6 @@ public:
 
 private:
 	float				m_flStartCapAnimStart;
-	bool				m_bDown;
 };
 
 //-----------------------------------------------------------------------------

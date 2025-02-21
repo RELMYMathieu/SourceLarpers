@@ -19,9 +19,9 @@
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-class CPointSpotlight : public CServerOnlyPointEntity
+class CPointSpotlight : public CPointEntity
 {
-	DECLARE_CLASS( CPointSpotlight, CServerOnlyPointEntity );
+	DECLARE_CLASS( CPointSpotlight, CPointEntity );
 public:
 	DECLARE_DATADESC();
 
@@ -32,8 +32,6 @@ public:
 	virtual void Activate();
 
 	virtual void OnEntityEvent( EntityEvent_t event, void *pEventData );
-
-	virtual void SetParent( CBaseEntity *pNewParent, int iAttachment = -1 );
 
 private:
 	int 	UpdateTransmitState();
@@ -55,12 +53,9 @@ private:
 	// Computes render info for a spotlight
 	void ComputeRenderInfo();
 
-	void PassParentToChildren( CBaseEntity *pParent );
-
 private:
 	bool	m_bSpotlightOn;
 	bool	m_bEfficientSpotlight;
-	bool	m_bIgnoreSolid;
 	Vector	m_vSpotlightTargetPos;
 	Vector	m_vSpotlightCurrentPos;
 	Vector	m_vSpotlightDir;
@@ -93,7 +88,6 @@ BEGIN_DATADESC( CPointSpotlight )
 	DEFINE_FIELD( m_vSpotlightDir,			FIELD_VECTOR ),
 	DEFINE_FIELD( m_nHaloSprite,			FIELD_INTEGER ),
 
-	DEFINE_KEYFIELD( m_bIgnoreSolid, FIELD_BOOLEAN, "IgnoreSolid" ),
 	DEFINE_KEYFIELD( m_flSpotlightMaxLength,FIELD_FLOAT, "SpotlightLength"),
 	DEFINE_KEYFIELD( m_flSpotlightGoalWidth,FIELD_FLOAT, "SpotlightWidth"),
 	DEFINE_KEYFIELD( m_flHDRColorScale, FIELD_FLOAT, "HDRColorScale" ),
@@ -124,9 +118,6 @@ CPointSpotlight::CPointSpotlight()
 #endif
 	m_flHDRColorScale = 1.0f;
 	m_nMinDXLevel = 0;
-	m_bIgnoreSolid = false;
-
-	AddEFlags( EFL_FORCE_ALLOW_MOVEPARENT );
 }
 
 
@@ -272,16 +263,6 @@ void CPointSpotlight::Activate(void)
 
 		// Don't think
 		SetThink( NULL );
-
-		// No targetname and no parent implies this is a static beam
-		// Hence, we can kill off ourselves and the end point. The beam visual will remain fixed in place
-		if ( GetEntityName() == NULL_STRING )
-		{
-			UTIL_Remove( m_hSpotlightTarget );
-			m_hSpotlightTarget = NULL;
-
-			UTIL_Remove( this );
-		}
 	}
 }
 
@@ -306,17 +287,6 @@ void CPointSpotlight::OnEntityEvent( EntityEvent_t event, void *pEventData )
 	}
 
 	BaseClass::OnEntityEvent( event, pEventData );
-}
-
-
-void CPointSpotlight::SetParent( CBaseEntity *pNewParent, int iAttachment )
-{
-	CBaseEntity *pOldParent = GetMoveParent();
-	
-	BaseClass::SetParent( pNewParent, iAttachment );
-	
-	if ( pOldParent != pNewParent )
-		PassParentToChildren( pNewParent );
 }
 
 	
@@ -362,21 +332,12 @@ void CPointSpotlight::SpotlightCreate(void)
 
 	AngleVectors( GetAbsAngles(), &m_vSpotlightDir );
 
-	Vector vTargetPos;
-	if ( m_bIgnoreSolid )
-	{
-		vTargetPos = GetAbsOrigin() + m_vSpotlightDir * m_flSpotlightMaxLength;
-	}
-	else
-	{
-		trace_t tr;
-		UTIL_TraceLine( GetAbsOrigin(), GetAbsOrigin() + m_vSpotlightDir * m_flSpotlightMaxLength, MASK_SOLID_BRUSHONLY, this, COLLISION_GROUP_NONE, &tr );
-		vTargetPos = tr.endpos;
-	}
+	trace_t tr;
+	UTIL_TraceLine( GetAbsOrigin(), GetAbsOrigin() + m_vSpotlightDir * m_flSpotlightMaxLength, MASK_SOLID_BRUSHONLY, this, COLLISION_GROUP_NONE, &tr);
 
 	m_hSpotlightTarget = (CSpotlightEnd*)CreateEntityByName( "spotlight_end" );
 	m_hSpotlightTarget->Spawn();
-	m_hSpotlightTarget->SetAbsOrigin( vTargetPos );
+	m_hSpotlightTarget->SetAbsOrigin( tr.endpos );
 	m_hSpotlightTarget->SetOwnerEntity( this );
 	m_hSpotlightTarget->m_clrRender = m_clrRender;
 	m_hSpotlightTarget->m_Radius = m_flSpotlightMaxLength;
@@ -399,7 +360,6 @@ void CPointSpotlight::SpotlightCreate(void)
 	m_hSpotlight->SetBrightness( 64 );
 	m_hSpotlight->SetNoise( 0 );
 	m_hSpotlight->SetMinDXLevel( m_nMinDXLevel );
-	m_hSpotlight->SetAbsOrigin( GetAbsOrigin() );
 
 	if ( m_bEfficientSpotlight )
 	{
@@ -407,12 +367,8 @@ void CPointSpotlight::SpotlightCreate(void)
 	}
 	else
 	{
-		m_hSpotlight->EntsInit( m_hSpotlight, m_hSpotlightTarget );
+		m_hSpotlight->EntsInit( this, m_hSpotlightTarget );
 	}
-
-	CBaseEntity* pParent = GetMoveParent();
-	if ( pParent )
-		PassParentToChildren( pParent );
 }
 
 //------------------------------------------------------------------------------
@@ -425,17 +381,9 @@ Vector CPointSpotlight::SpotlightCurrentPos(void)
 	AngleVectors( GetAbsAngles(), &m_vSpotlightDir );
 
 	//	Get beam end point.  Only collide with solid objects, not npcs
-	Vector vEndPos = GetAbsOrigin() + ( m_vSpotlightDir * 2 * m_flSpotlightMaxLength );
-	if ( m_bIgnoreSolid )
-	{
-		return vEndPos;
-	}
-	else
-	{
-		trace_t tr;
-		UTIL_TraceLine( GetAbsOrigin(), vEndPos, MASK_SOLID_BRUSHONLY, this, COLLISION_GROUP_NONE, &tr );
-		return tr.endpos;
-	}
+	trace_t tr;
+	UTIL_TraceLine( GetAbsOrigin(), GetAbsOrigin() + (m_vSpotlightDir * 2 * m_flSpotlightMaxLength), MASK_SOLID_BRUSHONLY, this, COLLISION_GROUP_NONE, &tr );
+	return tr.endpos;
 }
 
 //------------------------------------------------------------------------------
@@ -558,31 +506,6 @@ void CPointSpotlight::InputLightOff( inputdata_t &inputdata )
 		if ( m_bEfficientSpotlight )
 		{
 			SpotlightDestroy();
-		}
-	}
-}
-
-
-void CPointSpotlight::PassParentToChildren( CBaseEntity *pParent )
-{
-	// Since the spotlight itself is server-only, parenting wouldn't look correct on the client
-	// Instead, pass the parent entity down to our beams
-	
-	if ( m_hSpotlight )
-	{
-		// Ensure we are at the most up-to-date position
-		m_hSpotlight->SetAbsOrigin( GetAbsOrigin() );
-
-		m_hSpotlight->SetParent( pParent );
-		// SetParent can change our solidity state
-		m_hSpotlight->SetSolid( SOLID_NONE );
-		m_hSpotlight->SetMoveType( MOVETYPE_NONE );
-
-		if ( m_hSpotlightTarget )
-		{
-			m_hSpotlightTarget->SetParent( pParent );
-			m_hSpotlightTarget->SetSolid( SOLID_NONE );
-			m_hSpotlightTarget->SetMoveType( MOVETYPE_NONE );
 		}
 	}
 }

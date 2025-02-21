@@ -66,7 +66,7 @@ public:
 	CBoundedCvar_InterpRatio() :
 	  ConVar_ServerBounded( "cl_interp_ratio", 
 		  "2.0", 
-		  FCVAR_USERINFO | FCVAR_NOT_CONNECTED | FCVAR_ARCHIVE, 
+		  FCVAR_USERINFO | FCVAR_NOT_CONNECTED, 
 		  "Sets the interpolation amount (final amount is cl_interp_ratio / cl_updaterate)." )
 	  {
 	  }
@@ -100,7 +100,7 @@ public:
 	CBoundedCvar_Interp() :
 	  ConVar_ServerBounded( "cl_interp", 
 		  "0.1", 
-		  FCVAR_USERINFO | FCVAR_NOT_CONNECTED | FCVAR_ARCHIVE, 
+		  FCVAR_USERINFO | FCVAR_NOT_CONNECTED, 
 		  "Sets the interpolation amount (bounded on low side by server interp ratio settings).", true, 0.0f, true, 0.5f )
 	  {
 	  }
@@ -111,8 +111,7 @@ public:
 		  static const ConVar *pMin = g_pCVar->FindVar( "sv_client_min_interp_ratio" );
 		  if ( pUpdateRate && pMin && pMin->GetFloat() != -1 )
 		  {
-			  const ConVar_ServerBounded *pUpdateRateBounded = static_cast<const ConVar_ServerBounded*>( pUpdateRate );
-			  return MAX( GetBaseFloatValue(), pMin->GetFloat() / ( pUpdateRateBounded ? pUpdateRateBounded->GetFloat() : pUpdateRate->GetFloat() ) );
+			  return MAX( GetBaseFloatValue(), pMin->GetFloat() / pUpdateRate->GetFloat() );
 		  }
 		  else
 		  {
@@ -130,12 +129,11 @@ float GetClientInterpAmount()
 	if ( pUpdateRate )
 	{
 		// #define FIXME_INTERP_RATIO
-		const ConVar_ServerBounded *pUpdateRateBounded = static_cast< const ConVar_ServerBounded* >( pUpdateRate );
-		return MAX( cl_interp->GetFloat(), cl_interp_ratio->GetFloat() / ( pUpdateRateBounded ? pUpdateRateBounded->GetFloat() : pUpdateRate->GetFloat() ) );
+		return MAX( cl_interp->GetFloat(), cl_interp_ratio->GetFloat() / pUpdateRate->GetFloat() );
 	}
 	else
 	{
-		if ( !HushAsserts() )
+		if (!CommandLine()->FindParm("-hushasserts"))
 		{
 			AssertMsgOnce( false, "GetInterpolationAmount: can't get cl_updaterate cvar." );
 		}

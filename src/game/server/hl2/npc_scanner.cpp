@@ -208,14 +208,15 @@ CNPC_CScanner::CNPC_CScanner()
 	Q_strncpy(szMapName, STRING(gpGlobals->mapname), sizeof(szMapName) );
 	Q_strlower(szMapName);
 
-	if( !Q_strnicmp( szMapName, "d3_c17", 6 ) )
+	if (!Q_strnicmp(szMapName, "d3_c17", 6))
 	{
-		// Streetwar scanners are claw scanners
-		m_bIsClawScanner = true;
-	}
-	else
-	{
-		m_bIsClawScanner = false;
+		if(!m_bIsClawScanner)
+			// Streetwar scanners are claw scanners. TODO: correct the maps and phase this out.
+			Warning("Automatically converted a streetwar scanner to a claw scanner! (%.0f, %.0f, %0.f)\n",
+				GetAbsOrigin().x,
+				GetAbsOrigin().y,
+				GetAbsOrigin().z);
+			m_bIsClawScanner = true;
 	}
 }
 
@@ -1988,7 +1989,7 @@ void CNPC_CScanner::BlindFlashTarget( CBaseEntity *pTarget )
 
 		if ( tr.startsolid == false && tr.fraction == 1.0)
 		{
-			color32 white = { 255, 255, 255, (byte)(SCANNER_FLASH_MAX_VALUE * dotPr) };
+			color32 white = { 255, 255, 255, SCANNER_FLASH_MAX_VALUE * dotPr };
 
 			if ( ( g_pMaterialSystemHardwareConfig != NULL ) && ( g_pMaterialSystemHardwareConfig->GetHDRType() != HDR_TYPE_NONE ) )
 			{

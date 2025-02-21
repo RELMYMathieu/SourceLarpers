@@ -28,7 +28,6 @@ public:
 
 	void InputEnable( inputdata_t &inputdata );
 	void InputDisable( inputdata_t &inputdata );
-	void InputToggle( inputdata_t &inputdata );
 
 	bool IsEnabled( void ) const { return !m_isDisabled; }
 

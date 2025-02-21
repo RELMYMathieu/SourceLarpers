@@ -65,17 +65,7 @@ vgui::Panel *g_lastPanel = NULL; // used for mouseover buttons, keeps track of t
 vgui::Button *g_lastButton = NULL; // used for mouseover buttons, keeps track of the last active button
 using namespace vgui;
 
-void hud_autoreloadscript_callback( IConVar *var, const char *pOldValue, float flOldValue );
-
-ConVar hud_autoreloadscript("hud_autoreloadscript", "0", FCVAR_NONE, "Automatically reloads the animation script each time one is ran", hud_autoreloadscript_callback);
-
-void hud_autoreloadscript_callback( IConVar *var, const char *pOldValue, float flOldValue )
-{
-	if ( g_pClientMode && g_pClientMode->GetViewportAnimationController() )
-	{
-		g_pClientMode->GetViewportAnimationController()->SetAutoReloadScript( hud_autoreloadscript.GetBool() );
-	}
-}
+ConVar hud_autoreloadscript("hud_autoreloadscript", "0", FCVAR_NONE, "Automatically reloads the animation script each time one is ran");
 
 static ConVar cl_leveloverviewmarker( "cl_leveloverviewmarker", "0", FCVAR_CHEAT );
 
@@ -239,11 +229,12 @@ void CBaseViewport::CreateDefaultPanels( void )
 	AddNewPanel( CreatePanelByName( PANEL_SCOREBOARD ), "PANEL_SCOREBOARD" );
 	AddNewPanel( CreatePanelByName( PANEL_INFO ), "PANEL_INFO" );
 	AddNewPanel( CreatePanelByName( PANEL_SPECGUI ), "PANEL_SPECGUI" );
-#if !defined( TF_CLIENT_DLL )
 	AddNewPanel( CreatePanelByName( PANEL_SPECMENU ), "PANEL_SPECMENU" );
 	AddNewPanel( CreatePanelByName( PANEL_NAV_PROGRESS ), "PANEL_NAV_PROGRESS" );
-#endif // !TF_CLIENT_DLL
-#endif // !_XBOX
+	// AddNewPanel( CreatePanelByName( PANEL_TEAM ), "PANEL_TEAM" );
+	// AddNewPanel( CreatePanelByName( PANEL_CLASS ), "PANEL_CLASS" );
+	// AddNewPanel( CreatePanelByName( PANEL_BUY ), "PANEL_BUY" );
+#endif
 }
 
 void CBaseViewport::UpdateAllPanels( void )
@@ -259,43 +250,6 @@ void CBaseViewport::UpdateAllPanels( void )
 			p->Update();
 		}
 	}
-}
-
-// Check if we have any visible panel (that's not the MainMenuOverride or the Scoreboard)
-bool CBaseViewport::IsAnyPanelVisibleExceptScores()
-{
-	int count = m_Panels.Count();
-	for ( int i = 0; i < count; i++ )
-	{
-		IViewPortPanel *p = m_Panels[i];
-
-		if ( p->IsVisible() && Q_strcmp("MainMenuOverride", p->GetName()) && Q_strcmp("scores", p->GetName()) )
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-bool CBaseViewport::IsPanelVisible( const char* panel )
-{
-	int count = m_Panels.Count();
-
-	for ( int i = 0; i < count; i++ )
-	{
-		IViewPortPanel *p = m_Panels[i];
-		if ( p->IsVisible() )
-		{
-			const char* panel_name = p->GetName();
-			if ( !Q_strcmp( panel, panel_name ) )
-			{
-				return true;
-			}
-		}
-	}
-
-	return false;
 }
 
 IViewPortPanel* CBaseViewport::CreatePanelByName(const char *szPanelName)
@@ -522,9 +476,6 @@ CBaseViewport::~CBaseViewport()
 {
 	m_bInitialized = false;
 
-	if ( gViewPortInterface == this )
-		gViewPortInterface = NULL;
-
 #ifndef _XBOX
 	if ( !m_bHasParent && m_pBackGround )
 	{
@@ -623,12 +574,11 @@ void CBaseViewport::OnThink()
 		else
 			m_pActivePanel = NULL;
 	}
-
-	// TF does this in OnTick in TFViewport.  This remains to preserve old
-	// behavior in other games
-#if !defined( TF_CLIENT_DLL )
+	
 	m_pAnimController->UpdateAnimations( gpGlobals->curtime );
-#endif
+
+	// check the auto-reload cvar
+	m_pAnimController->SetAutoReloadScript(hud_autoreloadscript.GetBool());
 
 	int count = m_Panels.Count();
 
@@ -755,7 +705,7 @@ void CBaseViewport::ReloadScheme(const char *fromFile)
 
 int CBaseViewport::GetDeathMessageStartHeight( void )
 {
-	return YRES(16);
+	return YRES(2);
 }
 
 void CBaseViewport::Paint()

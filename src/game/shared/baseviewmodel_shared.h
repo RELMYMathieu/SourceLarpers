@@ -126,7 +126,7 @@ public:
 
 	virtual bool			Interpolate( float currentTime );
 
-	virtual bool			ShouldFlipViewModel() OVERRIDE;
+	bool					ShouldFlipViewModel();
 	void					UpdateAnimationParity( void );
 
 	virtual void			ApplyBoneMatrixTransform( matrix3x4_t& transform );
@@ -145,7 +145,9 @@ public:
 	// Should this object receive shadows?
 	virtual bool			ShouldReceiveProjectedTextures( int flags )
 	{
-		return false;
+		// https://developer.valvesoftware.com/wiki/Env_projectedtexture/fixes#Enabling_shadow_receiving_on_the_view_model
+		//return false;
+		return true;
 	}
 
 	// Add entity to visible view models list?

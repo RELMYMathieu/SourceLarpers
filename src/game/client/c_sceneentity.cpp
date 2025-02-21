@@ -90,6 +90,60 @@ bool UseHWMorphVCDs()
 }
 
 //-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+bool C_SceneEntity::GetHWMorphSceneFileName( const char *pFilename, char *pHWMFilename )
+{
+	// Are we even using hardware morph?
+	if ( !UseHWMorphVCDs() )
+		return false;
+
+	// Multi-player only!
+	if ( !m_bMultiplayer )
+		return false;
+
+	// Do we have a valid filename?
+	if ( !( pFilename && pFilename[0] ) )
+		return false;
+
+	// Check to see if we already have an player/hwm/* filename.
+	if ( ( V_strstr( pFilename, "/high" ) != NULL ) || ( V_strstr( pFilename, "\\high" ) != NULL ) )
+	{
+		V_strcpy( pHWMFilename, pFilename );
+		return true;
+	}
+
+	// Find the hardware morph scene name and pass that along as well.
+	char szScene[MAX_PATH];
+	V_strcpy( szScene, pFilename );
+
+	char szSceneHWM[MAX_PATH];
+	szSceneHWM[0] = '\0';
+
+	char *pszToken = strtok( szScene, "/\\" );
+	while ( pszToken != NULL )
+	{
+		if ( !V_stricmp( pszToken, "low" ) )
+		{
+			V_strcat( szSceneHWM, "high", sizeof( szSceneHWM ) );
+		}
+		else
+		{
+			V_strcat( szSceneHWM, pszToken, sizeof( szSceneHWM ) );
+		}
+
+		pszToken = strtok( NULL, "/\\" );
+		if ( pszToken != NULL )
+		{
+			V_strcat( szSceneHWM, "\\", sizeof( szSceneHWM ) );
+		}
+	}
+
+	V_strcpy( pHWMFilename, szSceneHWM );
+	return true;
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
 void C_SceneEntity::ResetActorFlexesForScene()
@@ -150,22 +204,22 @@ void C_SceneEntity::SetupClientOnlyScene( const char *pszFilename, C_BaseFlex *p
 	m_hOwner = pOwner;
 	m_bClientOnly = true;
 
-	char szFilename[MAX_PATH];
-	Assert( V_strlen( pszFilename ) < MAX_PATH );
-	V_strcpy_safe( szFilename, pszFilename );
+	char szFilename[128];
+	Assert( V_strlen( pszFilename ) < 128 );
+	V_strcpy( szFilename, pszFilename );
 
-	char szSceneHWM[ MAX_PATH ];
+	char szSceneHWM[128];
 	if ( GetHWMorphSceneFileName( szFilename, szSceneHWM ) )
 	{
-		V_strcpy_safe( szFilename, szSceneHWM );
+		V_strcpy( szFilename, szSceneHWM );
 	}
 
-	Assert(  szFilename[ 0 ] );
-	if ( szFilename[ 0 ] )
+	Assert( szFilename && szFilename[ 0 ] );
+	if (  szFilename && szFilename[ 0 ] )
 	{
 		LoadSceneFromFile( szFilename );
-
-		if ( !HushAsserts() )
+		
+		if (!CommandLine()->FindParm("-hushasserts"))
 		{
 			Assert( m_pScene );
 		}
@@ -203,7 +257,7 @@ void C_SceneEntity::SetupClientOnlyScene( const char *pszFilename, C_BaseFlex *p
 
 	if ( m_hOwner.Get() )
 	{
-		if ( !HushAsserts() )
+		if (!CommandLine()->FindParm("-hushasserts"))
 		{
 			Assert( m_pScene );
 		}
@@ -266,7 +320,7 @@ void C_SceneEntity::PostDataUpdate( DataUpdateType_t updateType )
 	if ( str )
 	{
 		Assert( V_strlen( str ) < MAX_PATH );
-		V_strcpy_safe( szFilename, str );
+		V_strcpy( szFilename, str );
 	}
 	else
 	{
@@ -276,13 +330,13 @@ void C_SceneEntity::PostDataUpdate( DataUpdateType_t updateType )
 	char szSceneHWM[MAX_PATH];
 	if ( GetHWMorphSceneFileName( szFilename, szSceneHWM ) )
 	{
-		V_strcpy_safe( szFilename, szSceneHWM );
+		V_strcpy( szFilename, szSceneHWM );
 	}
 
 	if ( updateType == DATA_UPDATE_CREATED )
 	{
-		Assert( szFilename[ 0 ] );
-		if ( szFilename[ 0 ] )
+		Assert( szFilename && szFilename[ 0 ] );
+		if (  szFilename && szFilename[ 0 ] )
 		{
 			LoadSceneFromFile( szFilename );
 
@@ -319,8 +373,6 @@ void C_SceneEntity::PostDataUpdate( DataUpdateType_t updateType )
 
 			SetNextClientThink( CLIENT_THINK_ALWAYS );
 		}
-
-		m_bWasPlaying = !m_bIsPlayingBack; // force it to be "changed"
 	}
 
 	// Playback state changed...
@@ -1054,7 +1106,7 @@ void C_SceneEntity::SetCurrentTime( float t, bool forceClientSync )
 //-----------------------------------------------------------------------------
 void C_SceneEntity::PrefetchAnimBlocks( CChoreoScene *pScene )
 {
-	if ( !HushAsserts() )
+	if (!CommandLine()->FindParm("-hushasserts"))
 	{
 		Assert( pScene && m_bMultiplayer );
 	}
@@ -1108,11 +1160,11 @@ void C_SceneEntity::PrefetchAnimBlocks( CChoreoScene *pScene )
 							{
 								// Now look up the animblock
 								mstudioseqdesc_t &seqdesc = pStudioHdr->pSeqdesc( iSequence );
-								for ( int iGroup = 0 ; iGroup < seqdesc.groupsize[ 0 ] ; ++iGroup )
+								for ( int i = 0 ; i < seqdesc.groupsize[ 0 ] ; ++i )
 								{
 									for ( int j = 0; j < seqdesc.groupsize[ 1 ]; ++j )
 									{
-										int iAnimation = seqdesc.anim( iGroup, j );
+										int iAnimation = seqdesc.anim( i, j );
 										int iBaseAnimation = pStudioHdr->iRelativeAnim( iSequence, iAnimation );
 										mstudioanimdesc_t &animdesc = pStudioHdr->pAnimdesc( iBaseAnimation );
 
@@ -1131,14 +1183,14 @@ void C_SceneEntity::PrefetchAnimBlocks( CChoreoScene *pScene )
 											++nResident;
 											if ( nSpew > 1 )
 											{
-												Msg( "%s:%s[%i:%i] was resident\n", pStudioHdr->pszName(), animdesc.pszName(), iGroup, j );
+												Msg( "%s:%s[%i:%i] was resident\n", pStudioHdr->pszName(), animdesc.pszName(), i, j );
 											}
 										}
 										else
 										{
 											if ( nSpew != 0 )
 											{
-												Msg( "%s:%s[%i:%i] async load\n", pStudioHdr->pszName(), animdesc.pszName(), iGroup, j );
+												Msg( "%s:%s[%i:%i] async load\n", pStudioHdr->pszName(), animdesc.pszName(), i, j );
 											}
 										}
 									}

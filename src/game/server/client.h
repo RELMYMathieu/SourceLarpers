@@ -27,12 +27,6 @@ void ClientGamePrecache( void );
 const char *GetGameDescription( void );
 void Host_Say( edict_t *pEdict, bool teamonly );
 
-enum eAllowPointServerCommand {
-	eAllowNever,
-	eAllowOfficial,
-	eAllowAlways
-};
 
-extern eAllowPointServerCommand sAllowPointServerCommand;
 
 #endif		// CLIENT_H

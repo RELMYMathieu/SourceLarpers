@@ -79,11 +79,6 @@ public:
 		m_flSimulationTime = -1;
 		m_masterSequence = 0;
 		m_masterCycle = 0;
-
-		for( int i=0; i<MAXSTUDIOPOSEPARAM; i++ )
-		{
-			m_flPoseParameters[i] = 0;
-		}
 	}
 
 	LagRecord( const LagRecord& src )
@@ -100,11 +95,6 @@ public:
 		}
 		m_masterSequence = src.m_masterSequence;
 		m_masterCycle = src.m_masterCycle;
-
-		for( int i=0; i<MAXSTUDIOPOSEPARAM; i++ )
-		{
-			m_flPoseParameters[i] = src.m_flPoseParameters[i];
-		}
 	}
 
 	// Did player die this frame
@@ -122,8 +112,6 @@ public:
 	LayerRecord				m_layerRecords[MAX_LAYER_RECORDS];
 	int						m_masterSequence;
 	float					m_masterCycle;
-
-	float					m_flPoseParameters[MAXSTUDIOPOSEPARAM];
 };
 
 
@@ -184,7 +172,6 @@ class CLagCompensationManager : public CAutoGameSystemPerFrame, public ILagCompe
 public:
 	CLagCompensationManager( char const *name ) : CAutoGameSystemPerFrame( name ), m_flTeleportDistanceSqr( 64 *64 )
 	{
-		m_isCurrentlyDoingCompensation = false;
 	}
 
 	// IServerSystem stuff
@@ -206,8 +193,6 @@ public:
 	// Called during player movement to set up/restore after lag compensation
 	void			StartLagCompensation( CBasePlayer *player, CUserCmd *cmd );
 	void			FinishLagCompensation( CBasePlayer *player );
-
-	bool			IsCurrentlyDoingLagCompensation() const OVERRIDE { return m_isCurrentlyDoingCompensation; }
 
 private:
 	void			BacktrackPlayer( CBasePlayer *player, float flTargetTime );
@@ -231,8 +216,6 @@ private:
 	CBasePlayer				*m_pCurrentPlayer;	// The player we are doing lag compensation for
 
 	float					m_flTeleportDistanceSqr;
-
-	bool					m_isCurrentlyDoingCompensation;	// Sentinel to prevent calling StartLagCompensation a second time before a Finish.
 };
 
 static CLagCompensationManager g_LagCompensationManager( "CLagCompensationManager" );
@@ -277,7 +260,7 @@ void CLagCompensationManager::FrameUpdatePostEntityThink()
 		Assert( track->Count() < 1000 ); // insanity check
 
 		// remove tail records that are too old
-		intp tailIndex = track->Tail();
+		int tailIndex = track->Tail();
 		while ( track->IsValidIndex( tailIndex ) )
 		{
 			LagRecord &tail = track->Element( tailIndex );
@@ -330,11 +313,6 @@ void CLagCompensationManager::FrameUpdatePostEntityThink()
 		}
 		record.m_masterSequence = pPlayer->GetSequence();
 		record.m_masterCycle = pPlayer->GetCycle();
-
-		for( int i=0; i<MAXSTUDIOPOSEPARAM; i++ )
-		{
-			record.m_flPoseParameters[i] = pPlayer->GetPoseParameter(i);
-		}
 	}
 
 	//Clear the current player.
@@ -344,8 +322,6 @@ void CLagCompensationManager::FrameUpdatePostEntityThink()
 // Called during player movement to set up/restore after lag compensation
 void CLagCompensationManager::StartLagCompensation( CBasePlayer *player, CUserCmd *cmd )
 {
-	Assert( !m_isCurrentlyDoingCompensation );
-
 	//DONT LAG COMP AGAIN THIS FRAME IF THERES ALREADY ONE IN PROGRESS
 	//IF YOU'RE HITTING THIS THEN IT MEANS THERES A CODE BUG
 	if ( m_pCurrentPlayer )
@@ -373,8 +349,6 @@ void CLagCompensationManager::StartLagCompensation( CBasePlayer *player, CUserCm
 	VPROF_BUDGET( "StartLagCompensation", VPROF_BUDGETGROUP_OTHER_NETWORKING );
 	Q_memset( m_RestoreData, 0, sizeof( m_RestoreData ) );
 	Q_memset( m_ChangeData, 0, sizeof( m_ChangeData ) );
-
-	m_isCurrentlyDoingCompensation = true;
 
 	// Get true latency
 
@@ -454,7 +428,7 @@ void CLagCompensationManager::BacktrackPlayer( CBasePlayer *pPlayer, float flTar
 	if ( track->Count() <= 0 )
 		return;
 
-	intp curr = track->Head();
+	int curr = track->Head();
 
 	LagRecord *prevRecord = NULL;
 	LagRecord *record = NULL;
@@ -672,23 +646,11 @@ void CLagCompensationManager::BacktrackPlayer( CBasePlayer *pPlayer, float flTar
 		{
 			pPlayer->SetCycle( Lerp( frac, record->m_masterCycle, prevRecord->m_masterCycle ) );
 		}
-
-		for( int i=0; i<MAXSTUDIOPOSEPARAM; i++ )
-		{
-			//don't lerp pose params, just pick the closest
-			pPlayer->SetPoseParameter( i, record->m_flPoseParameters[i] );
-			//pAnimating->SetPoseParameter( i, Lerp( frac, record->m_flPoseParameters[i], prevRecord->m_flPoseParameters[i] ) );
-		}
 	}
 	if( !interpolatedMasters )
 	{
 		pPlayer->SetSequence(record->m_masterSequence);
 		pPlayer->SetCycle(record->m_masterCycle);
-
-		for( int i=0; i<MAXSTUDIOPOSEPARAM; i++ )
-		{
-			pPlayer->SetPoseParameter( i, record->m_flPoseParameters[i] );
-		}
 	}
 
 	////////////////////////
@@ -772,10 +734,7 @@ void CLagCompensationManager::FinishLagCompensation( CBasePlayer *player )
 	m_pCurrentPlayer = NULL;
 
 	if ( !m_bNeedToRestore )
-	{
-		m_isCurrentlyDoingCompensation = false;
 		return; // no player was changed at all
-	}
 
 	// Iterate all active players
 	for ( int i = 1; i <= gpGlobals->maxClients; i++ )
@@ -811,6 +770,12 @@ void CLagCompensationManager::FinishLagCompensation( CBasePlayer *player )
 				// Restore it
 				pPlayer->SetSize( restore->m_vecMinsPreScaled, restore->m_vecMaxsPreScaled );
 			}
+#ifdef STAGING_ONLY
+			else
+			{
+				Warning( "Should we really not restore the size?\n" );
+			}
+#endif
 		}
 
 		if ( restore->m_fFlags & LC_ANGLES_CHANGED )
@@ -856,11 +821,6 @@ void CLagCompensationManager::FinishLagCompensation( CBasePlayer *player )
 					currentLayer->m_flWeight = restore->m_layerRecords[layerIndex].m_weight;
 				}
 			}
-
-			for( int i=0; i<MAXSTUDIOPOSEPARAM; i++ )
-			{
-				pPlayer->SetPoseParameter( i, restore->m_flPoseParameters[i] );
-			}
 		}
 
 		if ( restoreSimulationTime )
@@ -868,8 +828,6 @@ void CLagCompensationManager::FinishLagCompensation( CBasePlayer *player )
 			pPlayer->SetSimulationTime( restore->m_flSimulationTime );
 		}
 	}
-
-	m_isCurrentlyDoingCompensation = false;
 }
 
 

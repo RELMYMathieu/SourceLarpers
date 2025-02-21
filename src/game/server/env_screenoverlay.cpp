@@ -6,40 +6,10 @@
 
 #include "cbase.h"
 #include "shareddefs.h"
+#include "env_screenoverlay.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-class CEnvScreenOverlay : public CPointEntity
-{
-	DECLARE_CLASS( CEnvScreenOverlay, CPointEntity );
-public:
-	DECLARE_DATADESC();
-	DECLARE_SERVERCLASS();
-
-	CEnvScreenOverlay();
-
-	// Always transmit to clients
-	virtual int UpdateTransmitState();
-	virtual void Spawn( void );
-	virtual void Precache( void );
-
-	void	InputStartOverlay( inputdata_t &inputdata );
-	void	InputStopOverlay( inputdata_t &inputdata );
-	void	InputSwitchOverlay( inputdata_t &inputdata );
-
-	void	SetActive( bool bActive ) { m_bIsActive = bActive; }
-	
-protected:
-	CNetworkArray( string_t, m_iszOverlayNames, MAX_SCREEN_OVERLAYS );
-	CNetworkArray( float, m_flOverlayTimes, MAX_SCREEN_OVERLAYS );
-	CNetworkVar( float, m_flStartTime );
-	CNetworkVar( int, m_iDesiredOverlay );
-	CNetworkVar( bool, m_bIsActive );
-};
 
 LINK_ENTITY_TO_CLASS( env_screenoverlay, CEnvScreenOverlay );
 
@@ -81,10 +51,14 @@ BEGIN_DATADESC( CEnvScreenOverlay )
 
 END_DATADESC()
 
-extern void SendProxy_StringT_To_String( const SendProp *pProp, const void *pStruct, const void *pData, DVariant *pOut, int iElement, int objectID );
+void SendProxy_String_tToString( const SendProp *pProp, const void *pStruct, const void *pData, DVariant *pOut, int iElement, int objectID )
+{
+	string_t *pString = (string_t*)pData;
+	pOut->m_pString = (char*)STRING( *pString );
+}
 
 IMPLEMENT_SERVERCLASS_ST( CEnvScreenOverlay, DT_EnvScreenOverlay )
-	SendPropArray( SendPropString( SENDINFO_ARRAY( m_iszOverlayNames ), 0, SendProxy_StringT_To_String ), m_iszOverlayNames ),
+	SendPropArray( SendPropString( SENDINFO_ARRAY( m_iszOverlayNames ), 0, SendProxy_String_tToString ), m_iszOverlayNames ),
 	SendPropArray( SendPropFloat( SENDINFO_ARRAY( m_flOverlayTimes ), 11, SPROP_ROUNDDOWN, -1.0f, 63.0f ), m_flOverlayTimes ),
 	SendPropFloat( SENDINFO( m_flStartTime ), 32, SPROP_NOSCALE ),
 	SendPropInt( SENDINFO( m_iDesiredOverlay ), 5 ),
@@ -188,28 +162,6 @@ void CEnvScreenOverlay::InputStopOverlay( inputdata_t &inputdata )
 //  Screen-space effects
 //
 // ====================================================================================
-
-class CEnvScreenEffect : public CPointEntity
-{
-	DECLARE_CLASS( CEnvScreenEffect, CPointEntity );
-public:
-	DECLARE_DATADESC();
-	DECLARE_SERVERCLASS();
-
-	// We always want to be sent to the client
-	CEnvScreenEffect( void ) { 	AddEFlags( EFL_FORCE_CHECK_TRANSMIT ); }
-	virtual int UpdateTransmitState( void )	{ return SetTransmitState( FL_EDICT_ALWAYS ); }
-	virtual void Spawn( void );
-	virtual void Precache( void );
-
-private:
-
-	void InputStartEffect( inputdata_t &inputdata );
-	void InputStopEffect( inputdata_t &inputdata );
-
-	CNetworkVar( float, m_flDuration );
-	CNetworkVar( int, m_nType );
-};
 
 LINK_ENTITY_TO_CLASS( env_screeneffect, CEnvScreenEffect );
 

@@ -11,7 +11,6 @@
 #include "KeyValues.h"
 #include "filesystem.h"
 #include "game.h"
-#include "util_shared.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -130,9 +129,7 @@ bool CSoundscapeSystem::Init()
 {
 	m_soundscapeCount = 0;
 
-	char maptmp[256];
-	const char *mapname = GetCleanMapName( STRING( gpGlobals->mapname ), maptmp );
-
+	const char *mapname = STRING( gpGlobals->mapname );
 	const char *mapSoundscapeFilename = NULL;
 	if ( mapname && *mapname )
 	{
@@ -329,12 +326,12 @@ void CSoundscapeSystem::FrameUpdatePostEntityThink()
 
 				// if we got this far, we're looking at an entity that is contending
 				// for current player sound. the closest entity to player wins.
-				CEnvSoundscape *pCurrent = NULL;
-				if ( audio.entIndex > 0 && audio.entIndex <= m_soundscapeEntities.Count() )
+				CEnvSoundscape *pCurrent = (CEnvSoundscape *)( audio.ent.Get() );
+				if ( pCurrent )
 				{
-					int ssIndex = audio.entIndex - 1;
-							  
-					pCurrent = m_soundscapeEntities[ssIndex];
+					int nEntIndex = pCurrent->m_soundscapeEntityId - 1;
+					NOTE_UNUSED( nEntIndex );
+					Assert( m_soundscapeEntities[nEntIndex] == pCurrent );
 				}
 				ss_update_t update;
 				update.pPlayer = pPlayer;

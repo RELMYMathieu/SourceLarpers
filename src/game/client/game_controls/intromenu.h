@@ -46,8 +46,6 @@ public:
   	virtual bool IsVisible() { return BaseClass::IsVisible(); }
   	virtual void SetParent( vgui::VPANEL parent ) { BaseClass::SetParent( parent ); }
 
-	virtual GameActionSet_t GetPreferredActionSet() { return GAME_ACTION_SET_IN_GAME_HUD; }
-
 protected:	
 	// vgui overrides
 	virtual void OnCommand( const char *command );

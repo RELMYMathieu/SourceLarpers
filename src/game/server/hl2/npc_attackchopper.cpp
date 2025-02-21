@@ -3745,8 +3745,6 @@ void CNPC_AttackHelicopter::Event_Killed( const CTakeDamageInfo &info )
 		}
 	}
 
-	SendOnKilledGameEvent( info );
-
 	Chopper_BecomeChunks( this );
 	StopLoopingSounds();
 

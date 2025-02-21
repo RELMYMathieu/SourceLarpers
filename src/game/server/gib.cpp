@@ -591,7 +591,7 @@ void CGib::Spawn( const char *szGibModel )
 	m_nRenderMode = kRenderNormal;
 	m_nRenderFX = kRenderFxNone;
 	
-	// hopefully this will fix the VELOCITY TOO LOW stuff
+	// hopefully this will fix the VELOCITY TOO LOW crap
 	m_takedamage = DAMAGE_EVENTS_ONLY;
 	SetSolid( SOLID_BBOX );
 	AddSolidFlags( FSOLID_NOT_STANDABLE );

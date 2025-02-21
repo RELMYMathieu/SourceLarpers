@@ -55,12 +55,11 @@ public:
 	// Jump time, time to auto unduck (since we auto crouch jump now).
 	CNetworkVar( float, m_flJumpTime );
 	// Step sound side flip/flip
-	int m_nStepside;
+	int m_nStepside;;
 	// Velocity at time when we hit ground
 	CNetworkVar( float, m_flFallVelocity );
 	// Previous button state
 	int m_nOldButtons;
-	float m_flOldForwardMove;
 	class CSkyCamera *m_pOldSkyCamera;
 	// Base velocity that was passed in to server physics so 
 	//  client can predict conveyors correctly.  Server zeroes it, so we need to store here, too.
@@ -73,7 +72,6 @@ public:
 	// Is the player wearing the HEV suit
 	CNetworkVar( bool, m_bWearingSuit );
 	CNetworkVar( bool, m_bPoisoned );
-	CNetworkVar( bool, m_bForceLocalPlayerDraw );
 	CNetworkVar( float, m_flStepSize );
 	CNetworkVar( bool, m_bAllowAutoMovement );
 
@@ -86,8 +84,6 @@ public:
 	CNetworkVarEmbedded( audioparams_t, m_audio );
 
 	CNetworkVar( bool, m_bSlowMovement );
-
-	CNetworkString( m_szScriptOverlayMaterial, MAX_PATH );
 };
 
 EXTERN_SEND_TABLE(DT_Local);

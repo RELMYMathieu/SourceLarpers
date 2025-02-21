@@ -2041,7 +2041,7 @@ void CAI_ActBusyBehavior::RunTask( const Task_t *pTask )
 				if( GetEnemy() != NULL && !HasCondition(COND_ENEMY_OCCLUDED) )
 				{
 					// Break a combat actbusy if an enemy gets very close.
-					// Should do this with conditions instead. (sjb)
+					// I'll probably go to hell for not doing this with conditions like I should. (sjb)
 					float flDistSqr = GetAbsOrigin().DistToSqr( GetEnemy()->GetAbsOrigin() );
 
 					if( flDistSqr < Square(12.0f * 15.0f) )

@@ -36,7 +36,6 @@ public:
 	float			GetFogStart();
 	float			GetFogMaxDensity();
 	float			GetFogEnd();
-	bool			GetFogRadial();
 	bool			UseScreenAspectRatio() const { return m_bUseScreenAspectRatio; }
 
 	virtual void	GetToolRecordingState( KeyValues *msg );
@@ -49,7 +48,6 @@ private:
 	float m_flFogStart;
 	float m_flFogEnd;
 	float m_flFogMaxDensity;
-	bool m_bFogRadial;
 	bool m_bActive;
 	bool m_bUseScreenAspectRatio;
 

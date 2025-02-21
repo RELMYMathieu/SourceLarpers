@@ -79,17 +79,12 @@ public:
 	float  m_flNextResetCheckTime;
 #endif
 
-#if defined( HL2MP )
-	virtual const char *GetWeaponClassForAmmo() const { return NULL; }
-#endif
-
 	DECLARE_DATADESC();
 protected:
 	virtual void ComeToRest( void );
-	bool		m_bActivateWhenAtRest;
 
 private:
-	
+	bool		m_bActivateWhenAtRest;
 	COutputEvent m_OnPlayerTouch;
 	COutputEvent m_OnCacheInteraction;
 	

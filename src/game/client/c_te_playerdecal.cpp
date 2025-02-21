@@ -22,11 +22,7 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-#ifdef TF_CLIENT_DLL
-static ConVar cl_spraydisable( "cl_spraydisable", "1", FCVAR_CLIENTDLL | FCVAR_ARCHIVE, "Disable player sprays." );
-#else
-static ConVar cl_spraydisable( "cl_spraydisable", "0", FCVAR_CLIENTDLL | FCVAR_ARCHIVE, "Disable player sprays." );
-#endif
+static ConVar cl_playerspraydisable( "cl_playerspraydisable", "0", FCVAR_CLIENTDLL | FCVAR_ARCHIVE, "Disable player sprays." );
 
 #ifndef _XBOX
 CLIENTEFFECT_REGISTER_BEGIN( PrecachePlayerDecal )
@@ -187,7 +183,7 @@ IMaterial *CreateTempMaterialForPlayerLogo( int iPlayerIndex, player_info_t *inf
 		// copy from download folder to materials/temp folder
 		// this is done since material system can access only materials/*.vtf files
 
-		if ( !engine->CopyLocalFile( custname, fulltexname ) )
+		if ( !engine->CopyLocalFile( custname, fulltexname) )
 			return NULL;
 	}
 
@@ -205,7 +201,7 @@ IMaterial *CreateTempMaterialForPlayerLogo( int iPlayerIndex, player_info_t *inf
 void TE_PlayerDecal( IRecipientFilter& filter, float delay,
 	const Vector* pos, int player, int entity  )
 {
-	if ( cl_spraydisable.GetBool() )
+	if ( cl_playerspraydisable.GetBool() )
 		return;
 
 	// No valid target?
@@ -244,7 +240,7 @@ void TE_PlayerDecal( IRecipientFilter& filter, float delay,
 	color32 rgbaColor = { 255, 255, 255, 255 };
 	effects->PlayerDecalShoot( 
 		logo, 
-		(void *)(intp)player,
+		(void *)player,
 		entity, 
 		ent->GetModel(), 
 		ent->GetAbsOrigin(), 

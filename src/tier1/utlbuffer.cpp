@@ -219,7 +219,7 @@ CUtlBuffer::CUtlBuffer( int growSize, int initSize, int nFlags ) :
 CUtlBuffer::CUtlBuffer( const void *pBuffer, int nSize, int nFlags ) :
 	m_Memory( (unsigned char*)pBuffer, nSize ), m_Error(0)
 {
-	Assert( nSize != 0 );
+	Assert( nSize >= 0 );
 
 	m_Get = 0;
 	m_Put = 0;
@@ -323,21 +323,6 @@ void CUtlBuffer::AssumeMemory( void *pMemory, int nSize, int nInitialPut, int nF
 	m_nMaxPut = -1;
 	AddNullTermination();
 }
-
-//-----------------------------------------------------------------------------
-// Allows the caller to control memory
-//-----------------------------------------------------------------------------
-void* CUtlBuffer::DetachMemory()
-{
-	// Reset all indices; we just changed memory
-	m_Get = 0;
-	m_Put = 0;
-	m_nTab = 0;
-	m_Error = 0;
-	m_nOffset = 0;
-	return m_Memory.DetachMemory( );
-}
-
 
 //-----------------------------------------------------------------------------
 // Makes sure we've got at least this much memory
@@ -622,21 +607,17 @@ int CUtlBuffer::PeekDelimitedStringLength( CUtlCharConversion *pConv, bool bActu
 //-----------------------------------------------------------------------------
 // Reads a null-terminated string
 //-----------------------------------------------------------------------------
-void CUtlBuffer::GetStringInternal( char *pString, size_t maxLenInChars )
+void CUtlBuffer::GetString( char* pString, int nMaxChars )
 {
-	if ( !IsValid() )
+	if (!IsValid())
 	{
 		*pString = 0;
 		return;
 	}
 
-	// This can legitimately be zero if we were told that the buffer is zero length, and
-	// we're asking to duplicate the buffer, so let that pass, too.
-	Assert( maxLenInChars != 0 || PeekStringLength() == 0 );
-
-	if ( maxLenInChars == 0 )
+	if ( nMaxChars == 0 )
 	{
-		return;
+		nMaxChars = INT_MAX;
 	}
 
 	// Remember, this *includes* the null character
@@ -648,21 +629,24 @@ void CUtlBuffer::GetStringInternal( char *pString, size_t maxLenInChars )
 		EatWhiteSpace();
 	}
 
-	if ( nLen <= 0 )
+	if ( nLen == 0 )
 	{
 		*pString = 0;
 		m_Error |= GET_OVERFLOW;
 		return;
 	}
-
-	const size_t nCharsToRead = min( (size_t)nLen, maxLenInChars ) - 1;
-
-	Get( pString, (int) nCharsToRead );
-	pString[nCharsToRead] = 0;
-
-	if ( (size_t)nLen > (nCharsToRead + 1) )
+	
+	// Strip off the terminating NULL
+	if ( nLen <= nMaxChars )
 	{
-		SeekGet( SEEK_CURRENT, (int)( nLen - (nCharsToRead + 1) ) );
+		Get( pString, nLen - 1 );
+		pString[ nLen - 1 ] = 0;
+	}
+	else
+	{
+		Get( pString, nMaxChars - 1 );
+		pString[ nMaxChars - 1 ] = 0;
+		SeekGet( SEEK_CURRENT, nLen - 1 - nMaxChars );
 	}
 
 	// Read the terminating NULL in binary formats
@@ -747,7 +731,7 @@ void CUtlBuffer::GetDelimitedString( CUtlCharConversion *pConv, char *pString, i
 {
 	if ( !IsText() || !pConv )
 	{
-		GetStringInternal( pString, nMaxChars );
+		GetString( pString, nMaxChars );
 		return;
 	}
 
@@ -1057,7 +1041,7 @@ int CUtlBuffer::VaScanf( const char* pFmt, va_list list )
 				case 's':
 					{
 						char* s = va_arg( list, char * );
-						GetStringInternal( s, 256 );
+						GetString( s );
 					}
 					break;
 
@@ -1114,7 +1098,7 @@ bool CUtlBuffer::GetToken( const char *pToken )
 	Assert( pToken );
 
 	// Look for the token
-	int nLen = V_strlen( pToken );
+	int nLen = Q_strlen( pToken );
 
 	int nSizeToCheck = Size() - TellGet() - m_nOffset;
 
@@ -1137,7 +1121,7 @@ bool CUtlBuffer::GetToken( const char *pToken )
 		if ( pFoundEnd )
 		{
 			size_t nOffset = (size_t)pFoundEnd - (size_t)pBufStart;
-			SeekGet( CUtlBuffer::SEEK_CURRENT, (int)( nOffset + nLen ) );
+			SeekGet( CUtlBuffer::SEEK_CURRENT, nOffset + nLen );
 			return true;
 		}
 
@@ -1202,7 +1186,7 @@ bool CUtlBuffer::ParseToken( const char *pStartingDelim, const char *pEndingDeli
 		goto parseFailed;
 
 	nCurrentGet = TellGet();
-	nCharsToCopy = (int)( (nCurrentGet - nEndingDelimLen) - nTokenStart );
+	nCharsToCopy = (nCurrentGet - nEndingDelimLen) - nTokenStart;
 	if ( nCharsToCopy >= nMaxLen )
 	{
 		nCharsToCopy = nMaxLen - 1;
@@ -1357,7 +1341,7 @@ void CUtlBuffer::PutString( const char* pString )
 		if ( pString )
 		{
 			// Not text? append a null at the end.
-			int nLen = V_strlen( pString ) + 1;
+			size_t nLen = Q_strlen( pString ) + 1;
 			Put( pString, nLen * sizeof(char) );
 			return;
 		}
@@ -1380,7 +1364,7 @@ void CUtlBuffer::PutString( const char* pString )
 			while ( pEndl )
 			{
 				size_t nSize = (size_t)pEndl - (size_t)pString + sizeof(char);
-				Put( pString, (int)nSize );
+				Put( pString, nSize );
 				pString = pEndl + 1;
 				if ( *pString )
 				{
@@ -1393,7 +1377,7 @@ void CUtlBuffer::PutString( const char* pString )
 				}
 			}
 		}
-		int nLen = V_strlen( pString );
+		size_t nLen = Q_strlen( pString );
 		if ( nLen )
 		{
 			Put( pString, nLen * sizeof(char) );
@@ -1655,7 +1639,7 @@ bool CUtlBuffer::ConvertCRLF( CUtlBuffer &outBuf )
 	int nPutDelta = 0;
 
 	const char *pBase = (const char*)Base();
-	intp nCurrGet = 0;
+	int nCurrGet = 0;
 	while ( nCurrGet < nInCount )
 	{
 		const char *pCurr = &pBase[nCurrGet];
@@ -1668,8 +1652,8 @@ bool CUtlBuffer::ConvertCRLF( CUtlBuffer &outBuf )
 				break;
 			}
 
-			intp nBytes = (intp)pNext - (intp)pCurr;
-			outBuf.Put( pCurr, (int)nBytes );
+			int nBytes = (size_t)pNext - (size_t)pCurr;
+			outBuf.Put( pCurr, nBytes );
 			outBuf.PutChar( '\n' );
 			nCurrGet += nBytes + 2;
 			if ( nGet >= nCurrGet - 1 )
@@ -1690,8 +1674,8 @@ bool CUtlBuffer::ConvertCRLF( CUtlBuffer &outBuf )
 				break;
 			}
 
-			intp nBytes = (intp)pNext - (intp)pCurr;
-			outBuf.Put( pCurr, (int)nBytes );
+			int nBytes = (size_t)pNext - (size_t)pCurr;
+			outBuf.Put( pCurr, nBytes );
 			outBuf.PutChar( '\r' );
 			outBuf.PutChar( '\n' );
 			nCurrGet += nBytes + 1;

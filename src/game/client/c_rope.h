@@ -231,9 +231,6 @@ private:
 	bool			m_bPhysicsInitted : 1;				// It waits until all required entities are 
 	// present to start simulating and rendering.
 
-	static int		s_nLastRopeIndex;
-	int				m_nRopeIndex;
-
 	friend class CRopeManager;
 };
 

@@ -279,19 +279,15 @@ void CClientScoreBoardDialog::Update( void )
 	m_pPlayerList->GetContentSize(wide, tall);
 	tall += GetAdditionalHeight();
 	wide = GetWide();
-
-	if ( m_bAllowGrowth )
+	if (m_iDesiredHeight < tall)
 	{
-		if ( m_iDesiredHeight < tall )
-		{
-			SetSize( wide, tall );
-			m_pPlayerList->SetSize( wide, tall );
-		}
-		else
-		{
-			SetSize( wide, m_iDesiredHeight );
-			m_pPlayerList->SetSize( wide, m_iDesiredHeight );
-		}
+		SetSize(wide, tall);
+		m_pPlayerList->SetSize(wide, tall);
+	}
+	else
+	{
+		SetSize(wide, m_iDesiredHeight);
+		m_pPlayerList->SetSize(wide, m_iDesiredHeight);
 	}
 
 	MoveToCenterOfScreen();
@@ -412,7 +408,7 @@ void CClientScoreBoardDialog::AddSection(int teamType, int teamNumber)
 			teamName = name;
 		}
 
-		g_pVGuiLocalize->ConstructString_safe( string1, g_pVGuiLocalize->Find("#Player"), 2, teamName );
+		g_pVGuiLocalize->ConstructString( string1, sizeof( string1 ), g_pVGuiLocalize->Find("#Player"), 2, teamName );
 		
 		m_pPlayerList->AddSection(m_iSectionId, "", StaticPlayerSortFunc);
 
@@ -502,7 +498,7 @@ void CClientScoreBoardDialog::UpdatePlayerAvatar( int playerIndex, KeyValues *kv
 		{
 			if ( pi.friendsID )
 			{
-				CSteamID steamIDForPlayer( pi.friendsID, 1, GetUniverse(), k_EAccountTypeIndividual );
+				CSteamID steamIDForPlayer( pi.friendsID, 1, steamapicontext->SteamUtils()->GetConnectedUniverse(), k_EAccountTypeIndividual );
 
 				// See if we already have that avatar in our list
 				int iMapIndex = m_mapAvatarsToImageList.Find( steamIDForPlayer );
@@ -511,8 +507,7 @@ void CClientScoreBoardDialog::UpdatePlayerAvatar( int playerIndex, KeyValues *kv
 				{
 					CAvatarImage *pImage = new CAvatarImage();
 					pImage->SetAvatarSteamID( steamIDForPlayer );
-					int nSize = QuickPropScale( 16 );
-					pImage->SetAvatarSize( nSize, nSize );
+					pImage->SetAvatarSize( 32, 32 );	// Deliberately non scaling
 					iImageIndex = m_pImageList->AddImage( pImage );
 
 					m_mapAvatarsToImageList.Insert( steamIDForPlayer, iImageIndex );

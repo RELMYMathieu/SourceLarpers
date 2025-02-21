@@ -15,7 +15,6 @@ class CBaseMultiplayerPlayer : public CAI_ExpresserHost<CBasePlayer>
 {
 
 	DECLARE_CLASS( CBaseMultiplayerPlayer, CAI_ExpresserHost<CBasePlayer> );
-	DECLARE_ENT_SCRIPTDESC();
 
 public:
 
@@ -29,7 +28,7 @@ public:
 
 	virtual bool			SpeakIfAllowed( AIConcept_t concept, const char *modifiers = NULL, char *pszOutResponseChosen = NULL, size_t bufsize = 0, IRecipientFilter *filter = NULL );
 	virtual IResponseSystem *GetResponseSystem();
-	bool					SpeakConcept( AI_Response& response, int iConcept );
+	AI_Response				*SpeakConcept( int iConcept );
 	virtual bool			SpeakConceptIfAllowed( int iConcept, const char *modifiers = NULL, char *pszOutResponseChosen = NULL, size_t bufsize = 0, IRecipientFilter *filter = NULL );
 
 	virtual bool		CanHearAndReadChatFrom( CBasePlayer *pPlayer );

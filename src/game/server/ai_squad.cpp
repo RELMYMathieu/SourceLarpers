@@ -431,7 +431,7 @@ CAI_BaseNPC *CAI_Squad::GetFirstMember( AISquadIter_t *pIter, bool bIgnoreSilent
 	}
 
 	if ( pIter )
-		*pIter = (AISquadIter_t)(intp)i;
+		*pIter = (AISquadIter_t)i;
 	if ( i >= m_SquadMembers.Count() )
 		return NULL;
 

@@ -181,7 +181,7 @@ void CMapOverview::Init( void )
 	// register for events as client listener
 	ListenForGameEvent( "game_newmap" );
 	ListenForGameEvent( "round_start" );
-	ListenForGameEvent( "player_connect_client" );
+	ListenForGameEvent( "player_connect" );
 	ListenForGameEvent( "player_info" );
 	ListenForGameEvent( "player_team" );
 	ListenForGameEvent( "player_spawn" );
@@ -564,15 +564,15 @@ void CMapOverview::DrawMapPlayerTrails()
 		
 		player->trail[0] = WorldToMap ( player->position );
 
-		for ( int iTrail=0; iTrail<(MAX_TRAIL_LENGTH-1); iTrail++)
+		for ( int i=0; i<(MAX_TRAIL_LENGTH-1); i++)
 		{
-			if ( player->trail[iTrail +1].x == 0 && player->trail[iTrail +1].y == 0 )
+			if ( player->trail[i+1].x == 0 && player->trail[i+1].y == 0 )
 				break;
 
-			Vector2D pos1 = MapToPanel( player->trail[iTrail] );
-			Vector2D pos2 = MapToPanel( player->trail[iTrail +1] );
+			Vector2D pos1 = MapToPanel( player->trail[i] );
+			Vector2D pos2 = MapToPanel( player->trail[i+1] );
 
-			int intensity = 255 - float(255.0f * iTrail ) / MAX_TRAIL_LENGTH;
+			int intensity = 255 - float(255.0f * i) / MAX_TRAIL_LENGTH;
 
 			Vector2D dist = pos1 - pos2;
 			
@@ -851,7 +851,10 @@ void CMapOverview::SetMap(const char * levelname)
 	
 	if ( !m_MapKeyValues->LoadFromFile( g_pFullFileSystem, tempfile, "GAME" ) )
 	{
+		/* BM: I'd like to decouple the map overviews from the radar but for now, I'm suppressing this error message. */
+#if defined( CSTRIKE_DLL )
 		DevMsg( 1, "Error! CMapOverview::SetMap: couldn't load file %s.\n", tempfile );
+#endif // CSTRIKE_DLL
 		m_nMapTextureID = -1;
 		m_MapOrigin.x = 0;
 		m_MapOrigin.y = 0;
@@ -933,7 +936,7 @@ void CMapOverview::FireGameEvent( IGameEvent *event )
 		ResetRound();
 	}
 
-	else if ( Q_strcmp(type,"player_connect_client") == 0 )
+	else if ( Q_strcmp(type,"player_connect") == 0 )
 	{
 		int index = event->GetInt("index"); // = entity index - 1 
 

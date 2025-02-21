@@ -39,10 +39,6 @@
 #include "saverestoretypes.h"
 #include "nav_mesh.h"
 
-#ifdef TF_DLL
-#include "nav_mesh/tf_nav_area.h"
-#endif
-
 #ifdef NEXT_BOT
 #include "NextBot/NextBotManager.h"
 #endif
@@ -194,9 +190,7 @@ END_SEND_TABLE();
 // This table encodes the CBaseCombatCharacter
 //-----------------------------------------------------------------------------
 IMPLEMENT_SERVERCLASS_ST(CBaseCombatCharacter, DT_BaseCombatCharacter)
-#ifdef GLOWS_ENABLE
-	SendPropBool( SENDINFO( m_bGlowEnabled ) ),
-#endif // GLOWS_ENABLE
+
 	// Data that only gets sent to the local player.
 	SendPropDataTable( "bcc_localdata", 0, &REFERENCE_SEND_TABLE(DT_BCCLocalPlayerExclusive), SendProxy_SendBaseCombatCharacterLocalDataTable ),
 
@@ -747,10 +741,6 @@ CBaseCombatCharacter::CBaseCombatCharacter( void )
 	m_impactEnergyScale = 1.0f;
 
 	m_bForceServerRagdoll = ai_force_serverside_ragdoll.GetBool();
-
-#ifdef GLOWS_ENABLE
-	m_bGlowEnabled.Set( false );
-#endif // GLOWS_ENABLE
 }
 
 //------------------------------------------------------------------------------
@@ -854,10 +844,6 @@ void CBaseCombatCharacter::UpdateOnRemove( void )
 		pOwner->DeathNotice( this );
 		SetOwnerEntity( NULL );
 	}
-
-#ifdef GLOWS_ENABLE
-	RemoveGlowEffect();
-#endif // GLOWS_ENABLE
 
 	// Chain at end to mimic destructor unwind order
 	BaseClass::UpdateOnRemove();
@@ -2099,7 +2085,12 @@ void CBaseCombatCharacter::Weapon_Equip( CBaseCombatWeapon *pWeapon )
 			// !!!HACK - Don't give any ammo with the spawn equipment RPG in d3_c17_09. This is a chapter
 			// start and the map is way to easy if you start with 3 RPG rounds. It's fine if a player conserves
 			// them and uses them here, but it's not OK to start with enough ammo to bypass the snipers completely.
-			GiveAmmo( 0, pWeapon->m_iPrimaryAmmoType); 
+			GiveAmmo( 0, pWeapon->m_iPrimaryAmmoType);
+			/*
+				Dafug? We don't have to be this nice to players that start on this chapter. A mapper should
+				remove this rpg and maybe put another one wherever the next rockets are found.
+			//*/
+			Msg("You did not spawn with RPG rounds because of exploit. Move the rpg further up this map!\n");
 		}
 		else
 #endif // HL2_DLL
@@ -2168,20 +2159,7 @@ void CBaseCombatCharacter::Weapon_Equip( CBaseCombatWeapon *pWeapon )
 
 	// Pass the lighting origin over to the weapon if we have one
 	pWeapon->SetLightingOriginRelative( GetLightingOriginRelative() );
-
-	if ( IsPlayer() )
-	{
-		IGameEvent *event = gameeventmanager->CreateEvent( "weapon_equipped" );
-		if ( event )
-		{
-			event->SetString( "class", pWeapon->GetClassname() );
-			event->SetInt( "entindex", pWeapon->entindex() );
-			event->SetInt( "owner_entindex", entindex() );
-			gameeventmanager->FireEvent( event );
-		}
-	}
 }
-
 
 //-----------------------------------------------------------------------------
 // Purpose:	Leaves weapon, giving only ammo to the character
@@ -2297,8 +2275,8 @@ CBaseCombatWeapon *CBaseCombatCharacter::Weapon_GetWpnForAmmo( int iAmmoIndex )
 //-----------------------------------------------------------------------------
 bool CBaseCombatCharacter::Weapon_CanUse( CBaseCombatWeapon *pWeapon )
 {
-	int	actCount = 0;
-	acttable_t *pTable = pWeapon->ActivityList( actCount );
+	acttable_t *pTable		= pWeapon->ActivityList();
+	int			actCount	= pWeapon->ActivityListCount();
 
 	if( actCount < 1 )
 	{
@@ -3009,18 +2987,6 @@ int CBaseCombatCharacter::GiveAmmo( int iCount, int iAmmoIndex, bool bSuppressSo
 
 	m_iAmmo.Set( iAmmoIndex, m_iAmmo[iAmmoIndex] + iAdd );
 
-	if ( IsPlayer() )
-	{
-		IGameEvent *event = gameeventmanager->CreateEvent( "ammo_pickup" );
-		if ( event )
-		{
-			event->SetInt( "ammo_index", iAmmoIndex );
-			event->SetInt( "amount", iAdd );
-			event->SetInt( "total", m_iAmmo[ iAmmoIndex ] );
-			gameeventmanager->FireEvent( event );
-		}
-	}
-
 	return iAdd;
 }
 
@@ -3258,33 +3224,6 @@ float CBaseCombatCharacter::GetSpreadBias( CBaseCombatWeapon *pWeapon, CBaseEnti
 		return pWeapon->GetSpreadBias(GetCurrentWeaponProficiency());
 	return 1.0;
 }
-
-#ifdef GLOWS_ENABLE
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-void CBaseCombatCharacter::AddGlowEffect( void )
-{
-	SetTransmitState( FL_EDICT_ALWAYS );
-	m_bGlowEnabled.Set( true );
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-void CBaseCombatCharacter::RemoveGlowEffect( void )
-{
-	m_bGlowEnabled.Set( false );
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-bool CBaseCombatCharacter::IsGlowEffectActive( void )
-{
-	return m_bGlowEnabled;
-}
-#endif // GLOWS_ENABLE
 
 //-----------------------------------------------------------------------------
 // Assume everyone is average with every weapon. Override this to make exceptions.
@@ -3619,16 +3558,3 @@ float CBaseCombatCharacter::GetTimeSinceLastInjury( int team /*= TEAM_ANY */ ) c
 	return never;
 }
 
-//-----------------------------------------------------------------------------
-HSCRIPT CBaseCombatCharacter::ScriptGetLastKnownArea( void ) const 
-{ 
-#ifdef TF_DLL
-	return ToHScript( GetLastKnownArea() ); 
-#else
-	return NULL;
-#endif
-}	
-
-BEGIN_ENT_SCRIPTDESC( CBaseCombatCharacter, CBaseFlex, "Base combat characters." )
-	DEFINE_SCRIPTFUNC_NAMED( ScriptGetLastKnownArea, "GetLastKnownArea", "Return the last nav area occupied - NULL if unknown" )
-END_SCRIPTDESC();

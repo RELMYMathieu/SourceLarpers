@@ -54,6 +54,24 @@ END_DATADESC()
 LINK_ENTITY_TO_CLASS( point_devshot_camera, CPointDevShotCamera );
 
 //-----------------------------------------------------------------------------
+// Purpose: Convenience function so we don't have to make this check all over
+//-----------------------------------------------------------------------------
+static CBasePlayer * UTIL_GetLocalPlayerOrListenServerHost( void )
+{
+	if ( gpGlobals->maxClients > 1 )
+	{
+		if ( engine->IsDedicatedServer() )
+		{
+			return NULL;
+		}
+
+		return UTIL_GetListenServerHost();
+	}
+
+	return UTIL_GetLocalPlayer();
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
 void CPointDevShotCamera::Spawn( void )
@@ -225,8 +243,8 @@ public:
 					// Move to next camera
 					pkvCamera = pkvCamera->GetNextKey();
 				}
+				pkvMapCameras->deleteThis();
 			}
-
 			if ( !g_iDevShotCameraCount )
 			{
 				Warning( "Devshots: No point_devshot_camera in %s. Moving to next map.\n", STRING( gpGlobals->mapname ) );

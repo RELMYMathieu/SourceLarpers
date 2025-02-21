@@ -354,7 +354,7 @@ void CHLTVDirector::StartDelayMessage()
 
 void CHLTVDirector::StartBestPlayerCameraShot()
 {
-	float flPlayerRanking[MAX_PLAYERS_ARRAY_SAFE];
+	float flPlayerRanking[MAX_PLAYERS];
 
 	memset( flPlayerRanking, 0, sizeof(flPlayerRanking) );
 

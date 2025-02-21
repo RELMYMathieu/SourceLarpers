@@ -58,7 +58,10 @@ class C_BaseCombatCharacter;
 class CEntityMapData;
 class ConVar;
 class CDmgAccumulator;
-class IHasAttributes;
+
+#ifdef GLOWS_ENABLE
+class CGlowObject;
+#endif // GLOWS_ENABLE
 
 struct CSoundParameters;
 
@@ -336,7 +339,6 @@ public:
 	// save out interpolated values
 	virtual void					PreDataUpdate( DataUpdateType_t updateType );
 	virtual void					PostDataUpdate( DataUpdateType_t updateType );
-	virtual void					OnDataUnchangedInPVS();
 
 	virtual void					ValidateModelIndex( void );
 
@@ -518,7 +520,6 @@ public:
 
 	// Used when the collision prop is told to ask game code for the world-space surrounding box
 	virtual void					ComputeWorldSpaceSurroundingBox( Vector *pVecWorldMins, Vector *pVecWorldMaxs );
-	virtual float						GetHealthBarHeightOffset() const { return 0.f; }
 
 	// Returns the entity-to-world transform
 	matrix3x4_t						&EntityToWorldTransform();
@@ -572,11 +573,11 @@ public:
 	virtual bool					GetAttachmentVelocity( int number, Vector &originVel, Quaternion &angleVel );
 
 	// Team handling
-	virtual C_Team					*GetTeam( void ) const;
+	virtual C_Team					*GetTeam( void );
 	virtual int						GetTeamNumber( void ) const;
 	virtual void					ChangeTeam( int iTeamNum );			// Assign this entity to a team.
 	virtual int						GetRenderTeamNumber( void );
-	virtual bool					InSameTeam( const C_BaseEntity *pEntity ) const;	// Returns true if the specified entity is on the same team as this one
+	virtual bool					InSameTeam( C_BaseEntity *pEntity );	// Returns true if the specified entity is on the same team as this one
 	virtual bool					InLocalTeam( void );
 
 	// ID Target handling
@@ -689,7 +690,7 @@ public:
 
 	virtual bool					ShouldDraw();
 	inline	bool					IsVisible() const { return m_hRender != INVALID_CLIENT_RENDER_HANDLE; }
-	virtual void					UpdateVisibility();
+			void					UpdateVisibility();
 	
 	// Returns true if the entity changes its position every frame on the server but it doesn't
 	// set animtime. In that case, the client returns true here so it copies the server time to
@@ -746,8 +747,7 @@ public:
 	virtual void					SetHealth(int iHealth) {}
 	virtual int						GetHealth() const { return 0; }
 	virtual int						GetMaxHealth() const { return 1; }
-	virtual bool					IsVisibleToTargetID( void ) const { return false; }
-	virtual bool					IsHealthBarVisible( void ) const { return false; }
+	virtual bool					IsVisibleToTargetID( void ) { return false; }
 
 	// Returns the health fraction
 	float							HealthFraction() const;
@@ -816,7 +816,6 @@ public:
 	void							PreEntityPacketReceived( int commands_acknowledged );
 	void							PostEntityPacketReceived( void );
 	bool							PostNetworkDataReceived( int commands_acknowledged );
-	virtual bool					PredictionErrorShouldResetLatchedForAllPredictables( void ) { return true; } //legacy behavior is that any prediction error causes all predictables to reset latched
 	bool							GetPredictionEligible( void ) const;
 	void							SetPredictionEligible( bool canpredict );
 
@@ -1153,9 +1152,6 @@ public:
 
 	int		GetCreationTick() const;
 
-	virtual void ClientAdjustStartSoundParams( EmitSound_t &params ) {}
-	virtual void ClientAdjustStartSoundParams( StartSoundParams_t& params ) {}
-
 #ifdef _DEBUG
 	void FunctionCheck( void *pFunction, const char *name );
 
@@ -1180,17 +1176,7 @@ public:
 	// Sets the origin + angles to match the last position received
 	void MoveToLastReceivedPosition( bool force = false );
 
-	// Return the IHasAttributes interface for this base entity. Removes the need for:
-	//	dynamic_cast< IHasAttributes * >( pEntity );
-	// Which is remarkably slow.
-	// GetAttribInterface( CBaseEntity *pEntity ) in attribute_manager.h uses
-	//  this function, tests for NULL, and Asserts m_pAttributes == dynamic_cast.
-	inline IHasAttributes *GetHasAttributesInterfacePtr() const { return m_pAttributes; }
-
 protected:
-	// NOTE: m_pAttributes needs to be set in the leaf class constructor.
-	IHasAttributes *m_pAttributes;
-
 	// Only meant to be called from subclasses
 	void DestroyModelInstance();
 
@@ -1230,7 +1216,7 @@ protected:
 
 public:
 	// Accessors for above
-	static int						GetPredictionRandomSeed( bool bUseUnSyncedServerPlatTime = false );
+	static int						GetPredictionRandomSeed( void );
 	static void						SetPredictionRandomSeed( const CUserCmd *cmd );
 	static C_BasePlayer				*GetPredictionPlayer( void );
 	static void						SetPredictionPlayer( C_BasePlayer *player );
@@ -1398,7 +1384,6 @@ public:
 
 	virtual bool					IsDeflectable() { return false; }
 
-	bool			IsCombatCharacter() { return MyCombatCharacterPointer() == NULL ? false : true; }
 protected:
 	int								m_nFXComputeFrame;
 
@@ -1446,8 +1431,6 @@ public:
 	// This can be used to setup the entity as a client-only entity. It gets an entity handle,
 	// a render handle, and is put into the spatial partition.
 	bool InitializeAsClientEntityByIndex( int iIndex, RenderGroup_t renderGroup );
-
-	void TrackAngRotation( bool bTrack );
 
 private:
 	friend void OnRenderStart();
@@ -1695,6 +1678,28 @@ protected:
 	CThreadFastMutex m_CalcAbsolutePositionMutex;
 	CThreadFastMutex m_CalcAbsoluteVelocityMutex;
 
+#ifdef GLOWS_ENABLE
+public:
+	CGlowObject			*GetGlowObject(void) { return m_pGlowEffect; }
+	virtual void		GetGlowEffectColor(float *r, float *g, float *b);
+	virtual void		SetGlowEffectColor(float r, float g, float b);
+	virtual void		GetGlowEffectAlpha(float *a);
+	virtual void		SetGlowEffectAlpha(float a);
+
+protected:
+	virtual void		UpdateGlowEffect(void);
+	virtual void		DestroyGlowEffect(void);
+
+private:
+	bool				m_bGlowEnabled;
+	bool				m_bOldGlowEnabled;
+	CGlowObject			*m_pGlowEffect;
+	CNetworkVar(float,  m_fGlowRed);
+	CNetworkVar(float,  m_fGlowGreen);
+	CNetworkVar(float,  m_fGlowBlue);
+	CNetworkVar(float,  m_fGlowAlpha);
+#endif // GLOWS_ENABLE
+
 #ifdef TF_CLIENT_DLL
 	// TF prevents drawing of any entity attached to players that aren't items in the inventory of the player.
 	// This is to prevent servers creating fake cosmetic items and attaching them to players.
@@ -1708,9 +1713,6 @@ protected:
 	RenderMode_t m_PreviousRenderMode;
 	color32 m_PreviousRenderColor;
 #endif
-
-private:
-	bool	m_bOldShouldDraw;
 };
 
 EXTERN_RECV_TABLE(DT_BaseEntity);

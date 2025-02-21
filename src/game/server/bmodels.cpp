@@ -13,12 +13,6 @@
 #include "globals.h"
 #include "filters.h"
 
-/// XXX(JohnS): This was never fully implemented, and thus func_rotating was broken in TF2 from 2007 - 2018.  Bandwidth
-//              it intended to save is less significant now, but ideally it could be seamlessly clientside (with work -
-//              c_funcrotating is a stub that does nothing).  As few official maps use it at all, favoring it working in
-//              TF2 at all over small bandwidth savings.
-// #define CFUNCROTATING_CLIENTSIDE_SUPPORT
-
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
@@ -73,7 +67,7 @@ bool CFuncWall::CreateVPhysics( void )
 		int contents = modelinfo->GetModelContents( GetModelIndex() );
 		if ( ! (contents & (MASK_SOLID|MASK_PLAYERSOLID|MASK_NPCSOLID)) )
 		{
-			// leave the physics shadow there in case it has stuff constrained to it
+			// leave the physics shadow there in case it has crap constrained to it
 			// but disable collisions with it
 			pPhys->EnableCollisions( false );
 		}
@@ -504,7 +498,7 @@ END_DATADESC()
 extern void SendProxy_Origin( const SendProp *pProp, const void *pStruct, const void *pData, DVariant *pOut, int iElement, int objectID );
 void SendProxy_FuncRotatingOrigin( const SendProp *pProp, const void *pStruct, const void *pData, DVariant *pOut, int iElement, int objectID )
 {
-#ifdef CFUNCROTATING_CLIENTSIDE_SUPPORT
+#ifdef TF_DLL
 	CFuncRotating *entity = (CFuncRotating*)pStruct;
 	Assert( entity );
 
@@ -551,7 +545,7 @@ void SendProxy_FuncRotatingAngle( const SendProp *pProp, const void *pStruct, co
 
 	Assert( (uintp)qa >= (uintp)ea && (uintp)qa < (uintp)ea + sizeof( QAngle ));
 
-#ifdef CFUNCROTATING_CLIENTSIDE_SUPPORT
+#ifdef TF_DLL
 	if ( entity->HasSpawnFlags(SF_BRUSH_ROTATE_CLIENTSIDE) )
 	{
 		const QAngle *a = &entity->m_vecClientAngles;
@@ -570,7 +564,7 @@ void SendProxy_FuncRotatingAngle( const SendProp *pProp, const void *pStruct, co
 extern void SendProxy_SimulationTime( const SendProp *pProp, const void *pStruct, const void *pVarData, DVariant *pOut, int iElement, int objectID );
 void SendProxy_FuncRotatingSimulationTime( const SendProp *pProp, const void *pStruct, const void *pVarData, DVariant *pOut, int iElement, int objectID )
 {
-#ifdef CFUNCROTATING_CLIENTSIDE_SUPPORT
+#ifdef TF_DLL
 	CFuncRotating *entity = (CFuncRotating*)pStruct;
 	Assert( entity );
 
@@ -627,7 +621,7 @@ bool CFuncRotating::KeyValue( const char *szKeyName, const char *szValue )
 //-----------------------------------------------------------------------------
 void CFuncRotating::Spawn( )
 {
-#if defined( CFUNCROTATING_CLIENTSIDE_SUPPORT )
+#ifdef TF_DLL
 	AddSpawnFlags( SF_BRUSH_ROTATE_CLIENTSIDE );
 #endif
 
@@ -754,7 +748,7 @@ void CFuncRotating::Spawn( )
 		SetSolid( SOLID_BSP );
 	}
 
-#ifdef CFUNCROTATING_CLIENTSIDE_SUPPORT
+#ifdef TF_DLL
 	if ( HasSpawnFlags(SF_BRUSH_ROTATE_CLIENTSIDE) )
 	{
 		m_vecClientOrigin = GetLocalOrigin();

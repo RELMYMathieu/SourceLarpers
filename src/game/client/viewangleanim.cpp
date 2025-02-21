@@ -100,9 +100,7 @@ CON_COMMAND( viewanim_save, "Save current animation to file" )
 
 	if ( g_pTestAnimation )
 	{	
-		char szOutput[ MAX_PATH ];
-		V_FixupPathName( szOutput, sizeof(szOutput), args[1] );
-		g_pTestAnimation->SaveAsAnimFile( szOutput );
+		g_pTestAnimation->SaveAsAnimFile( args[1] );
 	}
 	else
 	{

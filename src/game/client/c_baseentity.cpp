@@ -41,9 +41,9 @@
 #include "inetchannelinfo.h"
 #include "proto_version.h"
 
-#ifdef TF_CLIENT_DLL
-#include "c_tf_player.h"
-#endif
+#ifdef GLOWS_ENABLE
+#include "glow_outline_effect.h"
+#endif // GLOWS_ENABLE
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -80,7 +80,7 @@ void cc_cl_interp_all_changed( IConVar *pConVar, const char *pOldString, float f
 static ConVar  cl_extrapolate( "cl_extrapolate", "1", FCVAR_CHEAT, "Enable/disable extrapolation if interpolation history runs out." );
 static ConVar  cl_interp_npcs( "cl_interp_npcs", "0.0", FCVAR_USERINFO, "Interpolate NPC positions starting this many seconds in past (or cl_interp, if greater)" );  
 static ConVar  cl_interp_all( "cl_interp_all", "0", 0, "Disable interpolation list optimizations.", 0, 0, 0, 0, cc_cl_interp_all_changed );
-ConVar  r_drawmodeldecals( "r_drawmodeldecals", "1", FCVAR_ALLOWED_IN_COMPETITIVE );
+ConVar  r_drawmodeldecals( "r_drawmodeldecals", "1" );
 extern ConVar	cl_showerror;
 int C_BaseEntity::m_nPredictionRandomSeed = -1;
 C_BasePlayer *C_BaseEntity::m_pPredictionPlayer = NULL;
@@ -477,6 +477,14 @@ BEGIN_RECV_TABLE_NOBASE(C_BaseEntity, DT_BaseEntity)
 	RecvPropInt		( RECVINFO( m_bAnimatedEveryTick ), 0, RecvProxy_InterpolationAmountChanged ),
 	RecvPropBool	( RECVINFO( m_bAlternateSorting ) ),
 
+#ifdef GLOWS_ENABLE
+	RecvPropBool(RECVINFO(m_bGlowEnabled)),
+	RecvPropFloat(RECVINFO(m_fGlowRed)),
+	RecvPropFloat(RECVINFO(m_fGlowGreen)),
+	RecvPropFloat(RECVINFO(m_fGlowBlue)),
+	RecvPropFloat(RECVINFO(m_fGlowAlpha)),
+#endif // GLOWS_ENABLE
+
 #ifdef TF_CLIENT_DLL
 	RecvPropArray3( RECVINFO_ARRAY(m_nModelIndexOverrides),	RecvPropInt( RECVINFO(m_nModelIndexOverrides[0]) ) ),
 #endif
@@ -575,8 +583,7 @@ void SpewInterpolatedVar( CInterpolatedVar< Vector > *pVar )
 {
 	Msg( "--------------------------------------------------\n" );
 	int i = pVar->GetHead();
-	Vector v0(0, 0, 0);
-	CApparentVelocity<Vector> apparent(v0);
+	CApparentVelocity<Vector> apparent;
 	float prevtime = 0.0f;
 	while ( 1 )
 	{
@@ -599,8 +606,7 @@ void SpewInterpolatedVar( CInterpolatedVar< Vector > *pVar, float flNow, float f
 
 	Msg( "--------------------------------------------------\n" );
 	int i = pVar->GetHead();
-	Vector v0(0, 0, 0);
-	CApparentVelocity<Vector> apparent(v0);
+	CApparentVelocity<Vector> apparent;
 	float newtime = 999999.0f;
 	Vector newVec( 0, 0, 0 );
 	bool bSpew = true;
@@ -668,7 +674,7 @@ void SpewInterpolatedVar( CInterpolatedVar< float > *pVar )
 {
 	Msg( "--------------------------------------------------\n" );
 	int i = pVar->GetHead();
-	CApparentVelocity<float> apparent(0.0f);
+	CApparentVelocity<float> apparent;
 	while ( 1 )
 	{
 		float changetime;
@@ -690,8 +696,7 @@ void GetInterpolatedVarTimeRange( CInterpolatedVar<T> *pVar, float &flMin, float
 	flMax = -1e23;
 
 	int i = pVar->GetHead();
-	Vector v0(0, 0, 0);
-	CApparentVelocity<Vector> apparent(v0);
+	CApparentVelocity<Vector> apparent;
 	while ( 1 )
 	{
 		float changetime;
@@ -899,8 +904,6 @@ C_BaseEntity::C_BaseEntity() :
 	m_iv_angRotation( "C_BaseEntity::m_iv_angRotation" ),
 	m_iv_vecVelocity( "C_BaseEntity::m_iv_vecVelocity" )
 {
-	m_pAttributes = NULL;
-
 	AddVar( &m_vecOrigin, &m_iv_vecOrigin, LATCH_SIMULATION_VAR );
 	AddVar( &m_angRotation, &m_iv_angRotation, LATCH_SIMULATION_VAR );
 	// Removing this until we figure out why velocity introduces view hitching.
@@ -970,6 +973,12 @@ C_BaseEntity::C_BaseEntity() :
 	m_bWasDeemedInvalid = false;
 #endif
 
+#ifdef GLOWS_ENABLE
+	m_pGlowEffect = NULL;
+	m_bGlowEnabled = false;
+	m_bOldGlowEnabled = false;
+#endif // GLOWS_ENABLE
+
 	ParticleProp()->Init( this );
 }
 
@@ -988,6 +997,10 @@ C_BaseEntity::~C_BaseEntity()
 #endif
 	RemoveFromInterpolationList();
 	RemoveFromTeleportList();
+
+#ifdef GLOWS_ENABLE
+	DestroyGlowEffect();
+#endif // GLOWS_ENABLE
 }
 
 void C_BaseEntity::Clear( void )
@@ -1090,28 +1103,6 @@ bool C_BaseEntity::Init( int entnum, int iSerialNum )
 
 	index = entnum;
 
-	if ( this->IsPlayer() )
-	{
-		// Josh: If we ever have a player that could ever cause us
-		// an out of bounds access to any player sized arrays.
-		// Just get out now!
-		//
-		// All these issues should be bounds checked now anyway,
-		// but I'd much rather be safe than sorry here.
-		//
-		// Additionally, make sure we aren't 0 or negative,
-		// the player CANNOT be worldspawn.
-		// Someone is going to try that to get an extra player and frog something up!
-		// 
-		// Player index is entindex - 1.
-		// MAX_PLAYERS_ARRAY_SAFE is MAX_PLAYERS + 1.
-		if ( index <= 0 || index >= MAX_PLAYERS_ARRAY_SAFE )
-		{
-			Warning("Player with out of bounds entindex! Got: %d Expected to be in inclusive range: %d - %d\n", index, 1, MAX_PLAYERS );
-			return false;
-		}
-	}
-
 	cl_entitylist->AddNetworkableEntity( GetIClientUnknown(), entnum, iSerialNum );
 
 	CollisionProp()->CreatePartitionHandle();
@@ -1176,13 +1167,6 @@ bool C_BaseEntity::InitializeAsClientEntityByIndex( int iIndex, RenderGroup_t re
 	return true;
 }
 
-void C_BaseEntity::TrackAngRotation( bool bTrack )
-{
-	if ( bTrack )
-		AddVar( &m_angRotation, &m_iv_angRotation, LATCH_SIMULATION_VAR );
-	else
-		RemoveVar( &m_angRotation, false );
-}
 
 void C_BaseEntity::Term()
 {
@@ -1335,6 +1319,19 @@ bool C_BaseEntity::VPhysicsIsFlesh( void )
 			return true;
 	}
 	return false;
+}
+
+//-----------------------------------------------------------------------------
+// Returns the health fraction
+//-----------------------------------------------------------------------------
+float C_BaseEntity::HealthFraction() const
+{
+	if (GetMaxHealth() == 0)
+		return 1.0f;
+
+	float flFraction = (float)GetHealth() / (float)GetMaxHealth();
+	flFraction = clamp( flFraction, 0.0f, 1.0f );
+	return flFraction;
 }
 
 
@@ -1771,9 +1768,9 @@ void C_BaseEntity::SetNetworkAngles( const QAngle& ang )
 // Purpose: 
 // Input  : index - 
 //-----------------------------------------------------------------------------
-void C_BaseEntity::SetModelIndex( int index_ )
+void C_BaseEntity::SetModelIndex( int index )
 {
-	m_nModelIndex = index_;
+	m_nModelIndex = index;
 	const model_t *pModel = modelinfo->GetModel( m_nModelIndex );
 	SetModelPointer( pModel );
 }
@@ -2065,7 +2062,7 @@ void C_BaseEntity::UpdatePartitionListEntry()
 		list |= PARTITION_CLIENT_RESPONSIVE_EDICTS;
 
 	// add the entity to the KD tree so we will collide against it
-	::partition->RemoveAndInsert( PARTITION_CLIENT_SOLID_EDICTS | PARTITION_CLIENT_RESPONSIVE_EDICTS | PARTITION_CLIENT_NON_STATIC_EDICTS, list, CollisionProp()->GetPartitionHandle() );
+	partition->RemoveAndInsert( PARTITION_CLIENT_SOLID_EDICTS | PARTITION_CLIENT_RESPONSIVE_EDICTS | PARTITION_CLIENT_NON_STATIC_EDICTS, list, CollisionProp()->GetPartitionHandle() );
 }
 
 
@@ -2121,7 +2118,7 @@ void C_BaseEntity::NotifyShouldTransmit( ShouldTransmitState_t state )
 			SetDormant( true );
 			
 			// remove the entity from the KD tree so we won't collide against it
-			::partition->Remove( PARTITION_CLIENT_SOLID_EDICTS | PARTITION_CLIENT_RESPONSIVE_EDICTS | PARTITION_CLIENT_NON_STATIC_EDICTS, CollisionProp()->GetPartitionHandle() );
+			partition->Remove( PARTITION_CLIENT_SOLID_EDICTS | PARTITION_CLIENT_RESPONSIVE_EDICTS | PARTITION_CLIENT_NON_STATIC_EDICTS, CollisionProp()->GetPartitionHandle() );
 		
 		}
 		break;
@@ -2195,7 +2192,6 @@ void C_BaseEntity::PreDataUpdate( DataUpdateType_t updateType )
 	}
 
 	m_ubOldInterpolationFrame = m_ubInterpolationFrame;
-	m_bOldShouldDraw = ShouldDraw();
 }
 
 const Vector& C_BaseEntity::GetOldOrigin()
@@ -2493,36 +2489,37 @@ void C_BaseEntity::UnlinkFromHierarchy()
 void C_BaseEntity::ValidateModelIndex( void )
 {
 #ifdef TF_CLIENT_DLL
-	if ( IsLocalPlayerUsingVisionFilterFlags( TF_VISION_FILTER_HALLOWEEN ) )
-	{
-		if ( m_nModelIndexOverrides[VISION_MODE_HALLOWEEN] > 0 )
-		{
-			SetModelByIndex( m_nModelIndexOverrides[VISION_MODE_HALLOWEEN] );
-			return;
-		}
-	}
-		
-	if ( IsLocalPlayerUsingVisionFilterFlags( TF_VISION_FILTER_PYRO ) )
-	{
-		if ( m_nModelIndexOverrides[VISION_MODE_PYRO] > 0 )
-		{
-			SetModelByIndex( m_nModelIndexOverrides[VISION_MODE_PYRO] );
-			return;
-		}
-	}
-
-	if ( IsLocalPlayerUsingVisionFilterFlags( TF_VISION_FILTER_ROME ) )
-	{
-		if ( m_nModelIndexOverrides[VISION_MODE_ROME] > 0 )
-		{
-			SetModelByIndex( m_nModelIndexOverrides[VISION_MODE_ROME] );
-			return;
-		}
-	}
-
 	if ( m_nModelIndexOverrides[VISION_MODE_NONE] > 0 ) 
 	{
+		if ( IsLocalPlayerUsingVisionFilterFlags( TF_VISION_FILTER_HALLOWEEN ) )
+		{
+			if ( m_nModelIndexOverrides[VISION_MODE_HALLOWEEN] > 0 )
+			{
+				SetModelByIndex( m_nModelIndexOverrides[VISION_MODE_HALLOWEEN] );
+				return;
+			}
+		}
+		
+		if ( IsLocalPlayerUsingVisionFilterFlags( TF_VISION_FILTER_PYRO ) )
+		{
+			if ( m_nModelIndexOverrides[VISION_MODE_PYRO] > 0 )
+			{
+				SetModelByIndex( m_nModelIndexOverrides[VISION_MODE_PYRO] );
+				return;
+			}
+		}
+
+		if ( IsLocalPlayerUsingVisionFilterFlags( TF_VISION_FILTER_ROME ) )
+		{
+			if ( m_nModelIndexOverrides[VISION_MODE_ROME] > 0 )
+			{
+				SetModelByIndex( m_nModelIndexOverrides[VISION_MODE_ROME] );
+				return;
+			}
+		}
+
 		SetModelByIndex( m_nModelIndexOverrides[VISION_MODE_NONE] );		
+
 		return;
 	}
 #endif
@@ -2647,23 +2644,6 @@ void C_BaseEntity::PostDataUpdate( DataUpdateType_t updateType )
 	{
 		UpdateVisibility();
 	}
-
-	// if ShouldDraw state changes, recalculate visibility
-	if ( m_bOldShouldDraw != ShouldDraw() )
-	{
-		UpdateVisibility();
-	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Latch simulation values when the entity has not changed
-//-----------------------------------------------------------------------------
-void C_BaseEntity::OnDataUnchangedInPVS()
-{
-	Assert( m_hNetworkMoveParent.Get() || !m_hNetworkMoveParent.IsValid() );
-	HierarchySetParent(m_hNetworkMoveParent);
-	
-	MarkMessageReceived();
 }
 
 //-----------------------------------------------------------------------------
@@ -3303,6 +3283,10 @@ void C_BaseEntity::OnPreDataChanged( DataUpdateType_t type )
 {
 	m_hOldMoveParent = m_hNetworkMoveParent;
 	m_iOldParentAttachment = m_iParentAttachment;
+
+#ifdef GLOWS_ENABLE
+	m_bOldGlowEnabled = m_bGlowEnabled;
+#endif // GLOWS_ENABLE
 }
 
 void C_BaseEntity::OnDataChanged( DataUpdateType_t type )
@@ -3317,6 +3301,15 @@ void C_BaseEntity::OnDataChanged( DataUpdateType_t type )
 	{
 		UpdateVisibility();
 	}
+
+#ifdef GLOWS_ENABLE
+	if ( m_bOldGlowEnabled != m_bGlowEnabled )
+	{
+		UpdateGlowEffect();
+	}
+	// Need to make sure the color is right (to avoid having to "reboot" the glow)
+	SetGlowEffectColor(m_fGlowRed.Get(), m_fGlowGreen.Get(), m_fGlowBlue.Get());
+#endif // GLOWS_ENABLE
 }
 
 ClientThinkHandle_t C_BaseEntity::GetThinkHandle()
@@ -3345,6 +3338,7 @@ void C_BaseEntity::ComputeFxBlend( void )
 	if ( m_nFXComputeFrame == gpGlobals->framecount )
 		return;
 
+	MDLCACHE_CRITICAL_SECTION();
 	int blend=0;
 	float offset;
 
@@ -3782,7 +3776,7 @@ void C_BaseEntity::AddColoredDecal( const Vector& rayStart, const Vector& rayEnd
 
 	case mod_brush:
 		{
-			color32 cColor32 = { (byte)cColor.r(), (byte)cColor.g(), (byte)cColor.b(), (byte)cColor.a() };
+			color32 cColor32 = { cColor.r(), cColor.g(), cColor.b(), cColor.a() };
 			effects->DecalColorShoot( decalIndex, index, model, GetAbsOrigin(), GetAbsAngles(), decalCenter, 0, 0, cColor32 );
 		}
 		break;
@@ -3881,7 +3875,7 @@ void C_BaseEntity::operator delete( void *pMem )
 //========================================================================================
 // TEAM HANDLING
 //========================================================================================
-C_Team *C_BaseEntity::GetTeam( void ) const
+C_Team *C_BaseEntity::GetTeam( void )
 {
 	return GetGlobalTeam( m_iTeamNum );
 }
@@ -3906,7 +3900,7 @@ int	C_BaseEntity::GetRenderTeamNumber( void )
 //-----------------------------------------------------------------------------
 // Purpose: Returns true if these entities are both in at least one team together
 //-----------------------------------------------------------------------------
-bool C_BaseEntity::InSameTeam( const C_BaseEntity *pEntity ) const
+bool C_BaseEntity::InSameTeam( C_BaseEntity *pEntity )
 {
 	if ( !pEntity )
 		return false;
@@ -4781,7 +4775,7 @@ C_BaseEntity *C_BaseEntity::Instance( int iEnt )
 	return ClientEntityList().GetBaseEntity( iEnt );
 }
 
-#if defined( WIN32 ) && _MSC_VER <= 1920
+#ifdef WIN32
 #pragma warning( push )
 #include <typeinfo.h>
 #pragma warning( pop )
@@ -5226,6 +5220,10 @@ void C_BaseEntity::DestroyIntermediateData( void )
 void C_BaseEntity::ShiftIntermediateDataForward( int slots_to_remove, int number_of_commands_run )
 {
 #if !defined( NO_ENTITY_PREDICTION )
+	Assert( m_pIntermediateData );
+	if ( !m_pIntermediateData )
+		return;
+
 	Assert( number_of_commands_run >= slots_to_remove );
 
 	// Just moving pointers, yeah
@@ -5616,22 +5614,16 @@ void C_BaseEntity::DrawBBoxVisualizations( void )
 {
 	if ( m_fBBoxVisFlags & VISUALIZE_COLLISION_BOUNDS )
 	{
-		if ( debugoverlay )
-		{
-			debugoverlay->AddBoxOverlay( CollisionProp()->GetCollisionOrigin(), CollisionProp()->OBBMins(),
-				CollisionProp()->OBBMaxs(), CollisionProp()->GetCollisionAngles(), 190, 190, 0, 0, 0.01 );
-		}
+		debugoverlay->AddBoxOverlay( CollisionProp()->GetCollisionOrigin(), CollisionProp()->OBBMins(),
+			CollisionProp()->OBBMaxs(), CollisionProp()->GetCollisionAngles(), 190, 190, 0, 0, 0.01 );
 	}
 
 	if ( m_fBBoxVisFlags & VISUALIZE_SURROUNDING_BOUNDS )
 	{
 		Vector vecSurroundMins, vecSurroundMaxs;
 		CollisionProp()->WorldSpaceSurroundingBounds( &vecSurroundMins, &vecSurroundMaxs );
-		if ( debugoverlay )
-		{
-			debugoverlay->AddBoxOverlay( vec3_origin, vecSurroundMins,
-				vecSurroundMaxs, vec3_angle, 0, 255, 255, 0, 0.01 );
-		}
+		debugoverlay->AddBoxOverlay( vec3_origin, vecSurroundMins,
+			vecSurroundMaxs, vec3_angle, 0, 255, 255, 0, 0.01 );
 	}
 
 	if ( m_fBBoxVisFlags & VISUALIZE_RENDER_BOUNDS || r_drawrenderboxes.GetInt() )
@@ -5662,6 +5654,13 @@ RenderGroup_t C_BaseEntity::GetRenderGroup()
 	// Don't sort things that don't need rendering
 	if ( m_nRenderMode == kRenderNone )
 		return RENDER_GROUP_OPAQUE_ENTITY;
+
+	// When an entity has a material proxy, we have to recompute
+	// translucency here because the proxy may have changed it.
+	if (modelinfo->ModelHasMaterialProxy( GetModel() ))
+	{
+		modelinfo->RecomputeTranslucency( const_cast<model_t*>(GetModel()), GetSkin(), GetBody(), GetClientRenderable() );
+	}
 
 	// NOTE: Bypassing the GetFXBlend protection logic because we want this to
 	// be able to be called from AddToLeafSystem.
@@ -6320,14 +6319,10 @@ bool C_BaseEntity::ValidateEntityAttachedToPlayer( bool &bShouldRetry )
 		return true;
 
 	// Some wearables parent to the view model
-	C_TFPlayer *pPlayer = ToTFPlayer( pParent );
-	if ( pPlayer )
+	C_BasePlayer *pPlayer = ToBasePlayer( pParent );
+	if ( pPlayer && pPlayer->GetViewModel() == this )
 	{
-		if ( pPlayer->GetViewModel() == this )
-			return true;
-
-		if ( pPlayer->HasItem() && ( pPlayer->GetItem()->GetItemID() == TF_ITEM_CAPTURE_FLAG ) && ( pPlayer->GetItem() == this ) )
-			return true;
+		return true;
 	}
 
 	// always allow the briefcase model
@@ -6336,28 +6331,18 @@ bool C_BaseEntity::ValidateEntityAttachedToPlayer( bool &bShouldRetry )
 	{
 		if ( FStrEq( pszModel, "models/flag/briefcase.mdl" ) )
 			return true;
-				
+
 		if ( FStrEq( pszModel, "models/props_doomsday/australium_container.mdl" ) )
 			return true;
 
 		// Temp for MVM testing
-		if ( FStrEq( pszModel, "models/buildables/sapper_placement.mdl" ) )
+		if ( FStrEq( pszModel, "models/buildables/sapper_placement_sentry1.mdl" ) )
 			return true;
 
 		if ( FStrEq( pszModel, "models/props_td/atom_bomb.mdl" ) )
 			return true;
 
 		if ( FStrEq( pszModel, "models/props_lakeside_event/bomb_temp_hat.mdl" ) )
-			return true;
-
-		if ( FStrEq( pszModel, "models/props_moonbase/powersupply_flag.mdl" ) )
-			return true;
-
-		// The Halloween 2014 doomsday flag replacement
-		if ( FStrEq( pszModel, "models/flag/ticket_case.mdl" ) )
-			return true;
-
-		if ( FStrEq( pszModel, "models/weapons/c_models/c_grapple_proj/c_grapple_proj.mdl" ) )
 			return true;
 	}
 
@@ -6474,6 +6459,71 @@ int C_BaseEntity::GetCreationTick() const
 {
 	return m_nCreationTick;
 }
+
+#ifdef GLOWS_ENABLE
+//-----------------------------------------------------------------------------
+// Purpose: Retuns the color vaules for the glow effect
+//-----------------------------------------------------------------------------
+void C_BaseEntity::GetGlowEffectColor(float *r, float *g, float *b)
+{
+	*r = m_fGlowRed.Get();
+	*g = m_fGlowGreen.Get();
+	*b = m_fGlowBlue.Get();
+}
+//-----------------------------------------------------------------------------
+// Purpose: Retuns the alpha vaule for the glow effect
+//-----------------------------------------------------------------------------
+void C_BaseEntity::GetGlowEffectAlpha(float *a)
+{
+	*a = m_fGlowAlpha.Get();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Sets the color vaules for the glow effect
+//-----------------------------------------------------------------------------
+void C_BaseEntity::SetGlowEffectColor(float r, float g, float b)
+{
+	m_fGlowRed.Set(r);
+	m_fGlowGreen.Set(g);
+	m_fGlowBlue.Set(b);
+}
+//-----------------------------------------------------------------------------
+// Purpose: Sets the alpha vaule for the glow effect
+//-----------------------------------------------------------------------------
+void C_BaseEntity::SetGlowEffectAlpha(float a)
+{
+	m_fGlowAlpha.Set(a);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: (Re)starts the glow effect
+//-----------------------------------------------------------------------------
+void C_BaseEntity::UpdateGlowEffect(void)
+{
+	// destroy the existing effect
+	if (m_pGlowEffect)
+	{
+		DestroyGlowEffect();
+	}
+
+	// create a new effect
+	if (m_bGlowEnabled)
+		m_pGlowEffect = new CGlowObject(this,
+			Vector(m_fGlowRed.Get(), m_fGlowGreen.Get(), m_fGlowBlue.Get()), m_fGlowAlpha.Get(), true);
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Deletes the glow effects pointer
+//-----------------------------------------------------------------------------
+void C_BaseEntity::DestroyGlowEffect(void)
+{
+	if (m_pGlowEffect)
+	{
+		delete m_pGlowEffect;
+		m_pGlowEffect = NULL;
+	}
+}
+#endif // GLOWS_ENABLE
 
 //------------------------------------------------------------------------------
 void CC_CL_Find_Ent( const CCommand& args )
