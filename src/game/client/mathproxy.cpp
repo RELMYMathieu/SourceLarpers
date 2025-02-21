@@ -16,7 +16,7 @@
 #include "tier0/memdbgon.h"
 
 // forward declarations
-void ToolFramework_RecordMaterialParams( IMaterial *pMaterial );
+void ToolFramework_RecordMaterialParams(IMaterial* pMaterial);
 
 class C_BaseEntity;
 
@@ -27,54 +27,54 @@ class C_BaseEntity;
 class CAddProxy : public CFunctionProxy
 {
 public:
-	bool Init( IMaterial *pMaterial, KeyValues *pKeyValues );
-	void OnBind( void *pC_BaseEntity );
+	bool Init(IMaterial* pMaterial, KeyValues* pKeyValues);
+	void OnBind(void* pC_BaseEntity);
 };
 
-bool CAddProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
+bool CAddProxy::Init(IMaterial* pMaterial, KeyValues* pKeyValues)
 {
 	// Requires 2 args..
-	bool ok = CFunctionProxy::Init( pMaterial, pKeyValues );
+	bool ok = CFunctionProxy::Init(pMaterial, pKeyValues);
 	ok = ok && m_pSrc2;
 	return ok;
 }
 
-void CAddProxy::OnBind( void *pC_BaseEntity )
+void CAddProxy::OnBind(void* pC_BaseEntity)
 {
-	Assert( m_pSrc1 && m_pSrc2 && m_pResult );
+	Assert(m_pSrc1 && m_pSrc2 && m_pResult);
 
 	MaterialVarType_t resultType;
 	int vecSize;
-	ComputeResultType( resultType, vecSize );
+	ComputeResultType(resultType, vecSize);
 
-	switch( resultType )
+	switch (resultType)
 	{
 	case MATERIAL_VAR_TYPE_VECTOR:
-		{
-			Vector a, b, c;
-			m_pSrc1->GetVecValue( a.Base(), vecSize ); 
-			m_pSrc2->GetVecValue( b.Base(), vecSize ); 
-			VectorAdd( a, b, c );
-			m_pResult->SetVecValue( c.Base(), vecSize );
-		}
-		break;
+	{
+		Vector a, b, c;
+		m_pSrc1->GetVecValue(a.Base(), vecSize);
+		m_pSrc2->GetVecValue(b.Base(), vecSize);
+		VectorAdd(a, b, c);
+		m_pResult->SetVecValue(c.Base(), vecSize);
+	}
+	break;
 
 	case MATERIAL_VAR_TYPE_FLOAT:
-		SetFloatResult( m_pSrc1->GetFloatValue() + m_pSrc2->GetFloatValue() );
+		SetFloatResult(GetSrc1Float() + GetSrc2Float());
 		break;
 
 	case MATERIAL_VAR_TYPE_INT:
-		m_pResult->SetFloatValue( m_pSrc1->GetIntValue() + m_pSrc2->GetIntValue() );
+		m_pResult->SetFloatValue(m_pSrc1->GetIntValue() + m_pSrc2->GetIntValue());
 		break;
 	}
 
-	if ( ToolsEnabled() )
+	if (ToolsEnabled())
 	{
-		ToolFramework_RecordMaterialParams( GetMaterial() );
+		ToolFramework_RecordMaterialParams(GetMaterial());
 	}
 }
 
-EXPOSE_INTERFACE( CAddProxy, IMaterialProxy, "Add" IMATERIAL_PROXY_INTERFACE_VERSION );
+EXPOSE_INTERFACE(CAddProxy, IMaterialProxy, "Add" IMATERIAL_PROXY_INTERFACE_VERSION);
 
 
 //-----------------------------------------------------------------------------
@@ -84,54 +84,54 @@ EXPOSE_INTERFACE( CAddProxy, IMaterialProxy, "Add" IMATERIAL_PROXY_INTERFACE_VER
 class CSubtractProxy : public CFunctionProxy
 {
 public:
-	bool Init( IMaterial *pMaterial, KeyValues *pKeyValues );
-	void OnBind( void *pC_BaseEntity );
+	bool Init(IMaterial* pMaterial, KeyValues* pKeyValues);
+	void OnBind(void* pC_BaseEntity);
 };
 
-bool CSubtractProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
+bool CSubtractProxy::Init(IMaterial* pMaterial, KeyValues* pKeyValues)
 {
 	// Requires 2 args..
-	bool ok = CFunctionProxy::Init( pMaterial, pKeyValues );
+	bool ok = CFunctionProxy::Init(pMaterial, pKeyValues);
 	ok = ok && m_pSrc2;
 	return ok;
 }
 
-void CSubtractProxy::OnBind( void *pC_BaseEntity )
+void CSubtractProxy::OnBind(void* pC_BaseEntity)
 {
-	Assert( m_pSrc1 && m_pSrc2 && m_pResult );
+	Assert(m_pSrc1 && m_pSrc2 && m_pResult);
 
 	MaterialVarType_t resultType;
 	int vecSize;
-	ComputeResultType( resultType, vecSize );
+	ComputeResultType(resultType, vecSize);
 
-	switch( resultType )
+	switch (resultType)
 	{
 	case MATERIAL_VAR_TYPE_VECTOR:
-		{
-			Vector a, b, c;
-			m_pSrc1->GetVecValue( a.Base(), vecSize ); 
-			m_pSrc2->GetVecValue( b.Base(), vecSize ); 
-			VectorSubtract( a, b, c );
-			m_pResult->SetVecValue( c.Base(), vecSize );
-		}
-		break;
+	{
+		Vector a, b, c;
+		m_pSrc1->GetVecValue(a.Base(), vecSize);
+		m_pSrc2->GetVecValue(b.Base(), vecSize);
+		VectorSubtract(a, b, c);
+		m_pResult->SetVecValue(c.Base(), vecSize);
+	}
+	break;
 
 	case MATERIAL_VAR_TYPE_FLOAT:
-		SetFloatResult( m_pSrc1->GetFloatValue() - m_pSrc2->GetFloatValue() );
+		SetFloatResult(GetSrc1Float() - GetSrc2Float());
 		break;
 
 	case MATERIAL_VAR_TYPE_INT:
-		m_pResult->SetFloatValue( m_pSrc1->GetIntValue() - m_pSrc2->GetIntValue() );
+		m_pResult->SetFloatValue(m_pSrc1->GetIntValue() - m_pSrc2->GetIntValue());
 		break;
 	}
 
-	if ( ToolsEnabled() )
+	if (ToolsEnabled())
 	{
-		ToolFramework_RecordMaterialParams( GetMaterial() );
+		ToolFramework_RecordMaterialParams(GetMaterial());
 	}
 }
 
-EXPOSE_INTERFACE( CSubtractProxy, IMaterialProxy, "Subtract" IMATERIAL_PROXY_INTERFACE_VERSION );
+EXPOSE_INTERFACE(CSubtractProxy, IMaterialProxy, "Subtract" IMATERIAL_PROXY_INTERFACE_VERSION);
 
 
 //-----------------------------------------------------------------------------
@@ -141,55 +141,55 @@ EXPOSE_INTERFACE( CSubtractProxy, IMaterialProxy, "Subtract" IMATERIAL_PROXY_INT
 class CMultiplyProxy : public CFunctionProxy
 {
 public:
-	bool Init( IMaterial *pMaterial, KeyValues *pKeyValues );
-	void OnBind( void *pC_BaseEntity );
+	bool Init(IMaterial* pMaterial, KeyValues* pKeyValues);
+	void OnBind(void* pC_BaseEntity);
 };
 
-bool CMultiplyProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
+bool CMultiplyProxy::Init(IMaterial* pMaterial, KeyValues* pKeyValues)
 {
 	// Requires 2 args..
-	bool ok = CFunctionProxy::Init( pMaterial, pKeyValues );
+	bool ok = CFunctionProxy::Init(pMaterial, pKeyValues);
 	ok = ok && m_pSrc2;
 	return ok;
 }
 
-void CMultiplyProxy::OnBind( void *pC_BaseEntity )
+void CMultiplyProxy::OnBind(void* pC_BaseEntity)
 {
-	Assert( m_pSrc1 && m_pSrc2 && m_pResult );
+	Assert(m_pSrc1 && m_pSrc2 && m_pResult);
 
 	MaterialVarType_t resultType;
 	int vecSize;
-	ComputeResultType( resultType, vecSize );
+	ComputeResultType(resultType, vecSize);
 
-	switch( resultType )
+	switch (resultType)
 	{
 	case MATERIAL_VAR_TYPE_VECTOR:
-		{
-			Vector a, b, c;
-			m_pSrc1->GetVecValue( a.Base(), vecSize ); 
-			m_pSrc2->GetVecValue( b.Base(), vecSize ); 
-			VectorMultiply( a, b, c );
-			m_pResult->SetVecValue( c.Base(), vecSize );
-		}
-		break;
+	{
+		Vector a, b, c;
+		m_pSrc1->GetVecValue(a.Base(), vecSize);
+		m_pSrc2->GetVecValue(b.Base(), vecSize);
+		VectorMultiply(a, b, c);
+		m_pResult->SetVecValue(c.Base(), vecSize);
+	}
+	break;
 
 	case MATERIAL_VAR_TYPE_FLOAT:
-		SetFloatResult( m_pSrc1->GetFloatValue() * m_pSrc2->GetFloatValue() );
+		SetFloatResult(GetSrc1Float() * GetSrc2Float());
 		break;
 
 	case MATERIAL_VAR_TYPE_INT:
-		m_pResult->SetFloatValue( m_pSrc1->GetIntValue() * m_pSrc2->GetIntValue() );
+		m_pResult->SetFloatValue(m_pSrc1->GetIntValue() * m_pSrc2->GetIntValue());
 		break;
 	}
 
-	if ( ToolsEnabled() )
+	if (ToolsEnabled())
 	{
-		ToolFramework_RecordMaterialParams( GetMaterial() );
+		ToolFramework_RecordMaterialParams(GetMaterial());
 	}
 }
 
 
-EXPOSE_INTERFACE( CMultiplyProxy, IMaterialProxy, "Multiply" IMATERIAL_PROXY_INTERFACE_VERSION );
+EXPOSE_INTERFACE(CMultiplyProxy, IMaterialProxy, "Multiply" IMATERIAL_PROXY_INTERFACE_VERSION);
 
 
 //-----------------------------------------------------------------------------
@@ -199,68 +199,68 @@ EXPOSE_INTERFACE( CMultiplyProxy, IMaterialProxy, "Multiply" IMATERIAL_PROXY_INT
 class CDivideProxy : public CFunctionProxy
 {
 public:
-	bool Init( IMaterial *pMaterial, KeyValues *pKeyValues );
-	void OnBind( void *pC_BaseEntity );
+	bool Init(IMaterial* pMaterial, KeyValues* pKeyValues);
+	void OnBind(void* pC_BaseEntity);
 };
 
-bool CDivideProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
+bool CDivideProxy::Init(IMaterial* pMaterial, KeyValues* pKeyValues)
 {
 	// Requires 2 args..
-	bool ok = CFunctionProxy::Init( pMaterial, pKeyValues );
+	bool ok = CFunctionProxy::Init(pMaterial, pKeyValues);
 	ok = ok && m_pSrc2;
 	return ok;
 }
 
-void CDivideProxy::OnBind( void *pC_BaseEntity )
+void CDivideProxy::OnBind(void* pC_BaseEntity)
 {
-	Assert( m_pSrc1 && m_pSrc2 && m_pResult );
+	Assert(m_pSrc1 && m_pSrc2 && m_pResult);
 
 	MaterialVarType_t resultType;
 	int vecSize;
-	ComputeResultType( resultType, vecSize );
+	ComputeResultType(resultType, vecSize);
 
-	switch( resultType )
+	switch (resultType)
 	{
 	case MATERIAL_VAR_TYPE_VECTOR:
-		{
-			Vector a, b, c;
-			m_pSrc1->GetVecValue( a.Base(), vecSize ); 
-			m_pSrc2->GetVecValue( b.Base(), vecSize ); 
-			VectorDivide( a, b, c );
-			m_pResult->SetVecValue( c.Base(), vecSize );
-		}
-		break;
+	{
+		Vector a, b, c;
+		m_pSrc1->GetVecValue(a.Base(), vecSize);
+		m_pSrc2->GetVecValue(b.Base(), vecSize);
+		VectorDivide(a, b, c);
+		m_pResult->SetVecValue(c.Base(), vecSize);
+	}
+	break;
 
 	case MATERIAL_VAR_TYPE_FLOAT:
-		if (m_pSrc2->GetFloatValue() != 0)
+		if (GetSrc2Float() != 0)
 		{
-			SetFloatResult( m_pSrc1->GetFloatValue() / m_pSrc2->GetFloatValue() );
+			SetFloatResult(GetSrc1Float() / GetSrc2Float());
 		}
 		else
 		{
-			SetFloatResult( m_pSrc1->GetFloatValue() );
+			SetFloatResult(GetSrc1Float());
 		}
 		break;
 
 	case MATERIAL_VAR_TYPE_INT:
 		if (m_pSrc2->GetIntValue() != 0)
 		{
-			m_pResult->SetFloatValue( m_pSrc1->GetIntValue() / m_pSrc2->GetIntValue() );
+			m_pResult->SetFloatValue(m_pSrc1->GetIntValue() / m_pSrc2->GetIntValue());
 		}
 		else
 		{
-			m_pResult->SetFloatValue( m_pSrc1->GetIntValue() );
+			m_pResult->SetFloatValue(m_pSrc1->GetIntValue());
 		}
 		break;
 	}
 
-	if ( ToolsEnabled() )
+	if (ToolsEnabled())
 	{
-		ToolFramework_RecordMaterialParams( GetMaterial() );
+		ToolFramework_RecordMaterialParams(GetMaterial());
 	}
 }
 
-EXPOSE_INTERFACE( CDivideProxy, IMaterialProxy, "Divide" IMATERIAL_PROXY_INTERFACE_VERSION );
+EXPOSE_INTERFACE(CDivideProxy, IMaterialProxy, "Divide" IMATERIAL_PROXY_INTERFACE_VERSION);
 
 //-----------------------------------------------------------------------------
 // clamps a var...
@@ -269,35 +269,35 @@ EXPOSE_INTERFACE( CDivideProxy, IMaterialProxy, "Divide" IMATERIAL_PROXY_INTERFA
 class CClampProxy : public CFunctionProxy
 {
 public:
-	bool Init( IMaterial *pMaterial, KeyValues *pKeyValues );
-	void OnBind( void *pC_BaseEntity );
+	bool Init(IMaterial* pMaterial, KeyValues* pKeyValues);
+	void OnBind(void* pC_BaseEntity);
 
 private:
 	CFloatInput m_Min;
 	CFloatInput m_Max;
 };
 
-bool CClampProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
+bool CClampProxy::Init(IMaterial* pMaterial, KeyValues* pKeyValues)
 {
-	if (!CFunctionProxy::Init( pMaterial, pKeyValues ))
+	if (!CFunctionProxy::Init(pMaterial, pKeyValues))
 		return false;
 
-	if (!m_Min.Init( pMaterial, pKeyValues, "min", 0 ))
+	if (!m_Min.Init(pMaterial, pKeyValues, "min", 0))
 		return false;
 
-	if (!m_Max.Init( pMaterial, pKeyValues, "max", 1 ))
+	if (!m_Max.Init(pMaterial, pKeyValues, "max", 1))
 		return false;
 
 	return true;
 }
 
-void CClampProxy::OnBind( void *pC_BaseEntity )
+void CClampProxy::OnBind(void* pC_BaseEntity)
 {
-	Assert( m_pSrc1 && m_pResult );
+	Assert(m_pSrc1 && m_pResult);
 
 	MaterialVarType_t resultType;
 	int vecSize;
-	ComputeResultType( resultType, vecSize );
+	ComputeResultType(resultType, vecSize);
 
 	float flMin = m_Min.GetFloat();
 	float flMax = m_Max.GetFloat();
@@ -309,54 +309,54 @@ void CClampProxy::OnBind( void *pC_BaseEntity )
 		flMax = flTemp;
 	}
 
-	switch( resultType )
+	switch (resultType)
 	{
 	case MATERIAL_VAR_TYPE_VECTOR:
+	{
+		Vector a;
+		m_pSrc1->GetVecValue(a.Base(), vecSize);
+		for (int i = 0; i < vecSize; ++i)
 		{
-			Vector a;
-			m_pSrc1->GetVecValue( a.Base(), vecSize );
-			for (int i = 0; i < vecSize; ++i)
-			{
-				if (a[i] < flMin)
-					a[i] = flMin;
-				else if (a[i] > flMax)
-					a[i] = flMax;
-			}
-			m_pResult->SetVecValue( a.Base(), vecSize );
+			if (a[i] < flMin)
+				a[i] = flMin;
+			else if (a[i] > flMax)
+				a[i] = flMax;
 		}
-		break;
+		m_pResult->SetVecValue(a.Base(), vecSize);
+	}
+	break;
 
 	case MATERIAL_VAR_TYPE_FLOAT:
-		{
-			float src = m_pSrc1->GetFloatValue();
-			if (src < flMin)
-				src = flMin;
-			else if (src > flMax)
-				src = flMax;
-			SetFloatResult( src );
-		}
-		break;
+	{
+		float src = GetSrc1Float();
+		if (src < flMin)
+			src = flMin;
+		else if (src > flMax)
+			src = flMax;
+		SetFloatResult(src);
+	}
+	break;
 
 	case MATERIAL_VAR_TYPE_INT:
-		{
-			int src = m_pSrc1->GetIntValue();
-			if (src < flMin)
-				src = flMin;
-			else if (src > flMax)
-				src = flMax;
-			m_pResult->SetIntValue( src );
-		}
-		break;
+	{
+		int src = m_pSrc1->GetIntValue();
+		if (src < flMin)
+			src = flMin;
+		else if (src > flMax)
+			src = flMax;
+		m_pResult->SetIntValue(src);
+	}
+	break;
 	}
 
-	if ( ToolsEnabled() )
+	if (ToolsEnabled())
 	{
-		ToolFramework_RecordMaterialParams( GetMaterial() );
+		ToolFramework_RecordMaterialParams(GetMaterial());
 	}
 }
 
 
-EXPOSE_INTERFACE( CClampProxy, IMaterialProxy, "Clamp" IMATERIAL_PROXY_INTERFACE_VERSION );
+EXPOSE_INTERFACE(CClampProxy, IMaterialProxy, "Clamp" IMATERIAL_PROXY_INTERFACE_VERSION);
 
 //-----------------------------------------------------------------------------
 // Creates a sinusoid
@@ -368,8 +368,8 @@ EXPOSE_INTERFACE( CClampProxy, IMaterialProxy, "Clamp" IMATERIAL_PROXY_INTERFACE
 class CSineProxy : public CResultProxy
 {
 public:
-	virtual bool Init( IMaterial *pMaterial, KeyValues *pKeyValues );
-	virtual void OnBind( void *pC_BaseEntity );
+	virtual bool Init(IMaterial* pMaterial, KeyValues* pKeyValues);
+	virtual void OnBind(void* pC_BaseEntity);
 
 private:
 	CFloatInput m_SinePeriod;
@@ -379,26 +379,26 @@ private:
 };
 
 
-bool CSineProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
+bool CSineProxy::Init(IMaterial* pMaterial, KeyValues* pKeyValues)
 {
-	if (!CResultProxy::Init( pMaterial, pKeyValues ))
+	if (!CResultProxy::Init(pMaterial, pKeyValues))
 		return false;
 
-	if (!m_SinePeriod.Init( pMaterial, pKeyValues, "sinePeriod", 1.0f ))
+	if (!m_SinePeriod.Init(pMaterial, pKeyValues, "sinePeriod", 1.0f))
 		return false;
-	if (!m_SineMax.Init( pMaterial, pKeyValues, "sineMax", 1.0f ))
+	if (!m_SineMax.Init(pMaterial, pKeyValues, "sineMax", 1.0f))
 		return false;
-	if (!m_SineMin.Init( pMaterial, pKeyValues, "sineMin", 0.0f ))
+	if (!m_SineMin.Init(pMaterial, pKeyValues, "sineMin", 0.0f))
 		return false;
-	if (!m_SineTimeOffset.Init( pMaterial, pKeyValues, "timeOffset", 0.0f ))
+	if (!m_SineTimeOffset.Init(pMaterial, pKeyValues, "timeOffset", 0.0f))
 		return false;
 
 	return true;
 }
 
-void CSineProxy::OnBind( void *pC_BaseEntity )
+void CSineProxy::OnBind(void* pC_BaseEntity)
 {
-	Assert( m_pResult );
+	Assert(m_pResult);
 
 	float flValue;
 	float flSineTimeOffset = m_SineTimeOffset.GetFloat();
@@ -409,19 +409,19 @@ void CSineProxy::OnBind( void *pC_BaseEntity )
 		flSinePeriod = 1;
 
 	// get a value in [0,1]
-	flValue = ( sin( 2.0f * M_PI * (gpGlobals->curtime - flSineTimeOffset) / flSinePeriod ) * 0.5f ) + 0.5f;
+	flValue = (sin(2.0f * M_PI * (gpGlobals->curtime - flSineTimeOffset) / flSinePeriod) * 0.5f) + 0.5f;
 	// get a value in [min,max]	
-	flValue = ( flSineMax - flSineMin ) * flValue + flSineMin;
-	
-	SetFloatResult( flValue );
+	flValue = (flSineMax - flSineMin) * flValue + flSineMin;
 
-	if ( ToolsEnabled() )
+	SetFloatResult(flValue);
+
+	if (ToolsEnabled())
 	{
-		ToolFramework_RecordMaterialParams( GetMaterial() );
+		ToolFramework_RecordMaterialParams(GetMaterial());
 	}
 }
 
-EXPOSE_INTERFACE( CSineProxy, IMaterialProxy, "Sine" IMATERIAL_PROXY_INTERFACE_VERSION );
+EXPOSE_INTERFACE(CSineProxy, IMaterialProxy, "Sine" IMATERIAL_PROXY_INTERFACE_VERSION);
 
 //-----------------------------------------------------------------------------
 // copies a var...
@@ -430,45 +430,45 @@ EXPOSE_INTERFACE( CSineProxy, IMaterialProxy, "Sine" IMATERIAL_PROXY_INTERFACE_V
 class CEqualsProxy : public CFunctionProxy
 {
 public:
-	void OnBind( void *pC_BaseEntity );
+	void OnBind(void* pC_BaseEntity);
 };
 
 
-void CEqualsProxy::OnBind( void *pC_BaseEntity )
+void CEqualsProxy::OnBind(void* pC_BaseEntity)
 {
-	Assert( m_pSrc1 && m_pResult );
+	Assert(m_pSrc1 && m_pResult);
 
 	MaterialVarType_t resultType;
 	int vecSize;
-	ComputeResultType( resultType, vecSize );
+	ComputeResultType(resultType, vecSize);
 
-	switch( resultType )
+	switch (resultType)
 	{
 	case MATERIAL_VAR_TYPE_VECTOR:
-		{
-			Vector a;
-			m_pSrc1->GetVecValue( a.Base(), vecSize );
-			m_pResult->SetVecValue( a.Base(), vecSize );
-		}
-		break;
+	{
+		Vector a;
+		m_pSrc1->GetVecValue(a.Base(), vecSize);
+		m_pResult->SetVecValue(a.Base(), vecSize);
+	}
+	break;
 
 	case MATERIAL_VAR_TYPE_FLOAT:
-		SetFloatResult( m_pSrc1->GetFloatValue() );
+		SetFloatResult(GetSrc1Float());
 		break;
 
 	case MATERIAL_VAR_TYPE_INT:
-		m_pResult->SetIntValue( m_pSrc1->GetIntValue() );
+		m_pResult->SetIntValue(m_pSrc1->GetIntValue());
 		break;
 	}
 
-	if ( ToolsEnabled() )
+	if (ToolsEnabled())
 	{
-		ToolFramework_RecordMaterialParams( GetMaterial() );
+		ToolFramework_RecordMaterialParams(GetMaterial());
 	}
 }
 
 
-EXPOSE_INTERFACE( CEqualsProxy, IMaterialProxy, "Equals" IMATERIAL_PROXY_INTERFACE_VERSION );
+EXPOSE_INTERFACE(CEqualsProxy, IMaterialProxy, "Equals" IMATERIAL_PROXY_INTERFACE_VERSION);
 
 
 //-----------------------------------------------------------------------------
@@ -478,53 +478,53 @@ EXPOSE_INTERFACE( CEqualsProxy, IMaterialProxy, "Equals" IMATERIAL_PROXY_INTERFA
 class CFracProxy : public CFunctionProxy
 {
 public:
-	void OnBind( void *pC_BaseEntity );
+	void OnBind(void* pC_BaseEntity);
 };
 
 
-void CFracProxy::OnBind( void *pC_BaseEntity )
+void CFracProxy::OnBind(void* pC_BaseEntity)
 {
-	Assert( m_pSrc1 && m_pResult );
+	Assert(m_pSrc1 && m_pResult);
 
 	MaterialVarType_t resultType;
 	int vecSize;
-	ComputeResultType( resultType, vecSize );
+	ComputeResultType(resultType, vecSize);
 
-	switch( resultType )
+	switch (resultType)
 	{
 	case MATERIAL_VAR_TYPE_VECTOR:
-		{
-			Vector a;
-			m_pSrc1->GetVecValue( a.Base(), vecSize );
-			a[0] -= ( float )( int )a[0];
-			a[1] -= ( float )( int )a[1];
-			a[2] -= ( float )( int )a[2];
-			m_pResult->SetVecValue( a.Base(), vecSize );
-		}
-		break;
+	{
+		Vector a;
+		m_pSrc1->GetVecValue(a.Base(), vecSize);
+		a[0] -= (float)(int)a[0];
+		a[1] -= (float)(int)a[1];
+		a[2] -= (float)(int)a[2];
+		m_pResult->SetVecValue(a.Base(), vecSize);
+	}
+	break;
 
 	case MATERIAL_VAR_TYPE_FLOAT:
-		{
-			float a = m_pSrc1->GetFloatValue();
-			a -= ( int )a;
-			SetFloatResult( a );
-		}
-		break;
+	{
+		float a = GetSrc1Float();
+		a -= (int)a;
+		SetFloatResult(a);
+	}
+	break;
 
 	case MATERIAL_VAR_TYPE_INT:
 		// don't do anything besides assignment!
-		m_pResult->SetIntValue( m_pSrc1->GetIntValue() );
+		m_pResult->SetIntValue(m_pSrc1->GetIntValue());
 		break;
 	}
 
-	if ( ToolsEnabled() )
+	if (ToolsEnabled())
 	{
-		ToolFramework_RecordMaterialParams( GetMaterial() );
+		ToolFramework_RecordMaterialParams(GetMaterial());
 	}
 }
 
 
-EXPOSE_INTERFACE( CFracProxy, IMaterialProxy, "Frac" IMATERIAL_PROXY_INTERFACE_VERSION );
+EXPOSE_INTERFACE(CFracProxy, IMaterialProxy, "Frac" IMATERIAL_PROXY_INTERFACE_VERSION);
 
 //-----------------------------------------------------------------------------
 // Get the Integer part of a var
@@ -533,51 +533,51 @@ EXPOSE_INTERFACE( CFracProxy, IMaterialProxy, "Frac" IMATERIAL_PROXY_INTERFACE_V
 class CIntProxy : public CFunctionProxy
 {
 public:
-	void OnBind( void *pC_BaseEntity );
+	void OnBind(void* pC_BaseEntity);
 };
 
-void CIntProxy::OnBind( void *pC_BaseEntity )
+void CIntProxy::OnBind(void* pC_BaseEntity)
 {
-	Assert( m_pSrc1 && m_pResult );
+	Assert(m_pSrc1 && m_pResult);
 
 	MaterialVarType_t resultType;
 	int vecSize;
-	ComputeResultType( resultType, vecSize );
+	ComputeResultType(resultType, vecSize);
 
-	switch( resultType )
+	switch (resultType)
 	{
 	case MATERIAL_VAR_TYPE_VECTOR:
-		{
-			Vector a;
-			m_pSrc1->GetVecValue( a.Base(), vecSize );
-			a[0] = ( float )( int )a[0];
-			a[1] = ( float )( int )a[1];
-			a[2] = ( float )( int )a[2];
-			m_pResult->SetVecValue( a.Base(), vecSize );
-		}
-		break;
+	{
+		Vector a;
+		m_pSrc1->GetVecValue(a.Base(), vecSize);
+		a[0] = (float)(int)a[0];
+		a[1] = (float)(int)a[1];
+		a[2] = (float)(int)a[2];
+		m_pResult->SetVecValue(a.Base(), vecSize);
+	}
+	break;
 
 	case MATERIAL_VAR_TYPE_FLOAT:
-		{
-			float a = m_pSrc1->GetFloatValue();
-			a = ( float )( int )a;
-			SetFloatResult( a );
-		}
-		break;
+	{
+		float a = GetSrc1Float();
+		a = (float)(int)a;
+		SetFloatResult(a);
+	}
+	break;
 
 	case MATERIAL_VAR_TYPE_INT:
 		// don't do anything besides assignment!
-		m_pResult->SetIntValue( m_pSrc1->GetIntValue() );
+		m_pResult->SetIntValue(m_pSrc1->GetIntValue());
 		break;
 	}
 
-	if ( ToolsEnabled() )
+	if (ToolsEnabled())
 	{
-		ToolFramework_RecordMaterialParams( GetMaterial() );
+		ToolFramework_RecordMaterialParams(GetMaterial());
 	}
 }
 
-EXPOSE_INTERFACE( CIntProxy, IMaterialProxy, "Int" IMATERIAL_PROXY_INTERFACE_VERSION );
+EXPOSE_INTERFACE(CIntProxy, IMaterialProxy, "Int" IMATERIAL_PROXY_INTERFACE_VERSION);
 
 //-----------------------------------------------------------------------------
 // Linear ramp proxy
@@ -585,8 +585,8 @@ EXPOSE_INTERFACE( CIntProxy, IMaterialProxy, "Int" IMATERIAL_PROXY_INTERFACE_VER
 class CLinearRampProxy : public CResultProxy
 {
 public:
-	virtual bool Init( IMaterial *pMaterial, KeyValues *pKeyValues );
-	virtual void OnBind( void *pC_BaseEntity );
+	virtual bool Init(IMaterial* pMaterial, KeyValues* pKeyValues);
+	virtual void OnBind(void* pC_BaseEntity);
 
 private:
 	CFloatInput m_Rate;
@@ -594,39 +594,39 @@ private:
 };
 
 
-bool CLinearRampProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
+bool CLinearRampProxy::Init(IMaterial* pMaterial, KeyValues* pKeyValues)
 {
-	if (!CResultProxy::Init( pMaterial, pKeyValues ))
+	if (!CResultProxy::Init(pMaterial, pKeyValues))
 		return false;
 
-	if (!m_Rate.Init( pMaterial, pKeyValues, "rate", 1 ))
+	if (!m_Rate.Init(pMaterial, pKeyValues, "rate", 1))
 		return false;
 
-	if (!m_InitialValue.Init( pMaterial, pKeyValues, "initialValue", 0 ))
+	if (!m_InitialValue.Init(pMaterial, pKeyValues, "initialValue", 0))
 		return false;
 
 	return true;
 }
 
-void CLinearRampProxy::OnBind( void *pC_BaseEntity )
+void CLinearRampProxy::OnBind(void* pC_BaseEntity)
 {
-	Assert( m_pResult );
+	Assert(m_pResult);
 
 	float flValue;
-	
-	// get a value in [0,1]
-	flValue = m_Rate.GetFloat() * gpGlobals->curtime + m_InitialValue.GetFloat();	
-	SetFloatResult( flValue );
 
-	if ( ToolsEnabled() )
+	// get a value in [0,1]
+	flValue = m_Rate.GetFloat() * gpGlobals->curtime + m_InitialValue.GetFloat();
+	SetFloatResult(flValue);
+
+	if (ToolsEnabled())
 	{
-		ToolFramework_RecordMaterialParams( GetMaterial() );
+		ToolFramework_RecordMaterialParams(GetMaterial());
 	}
 }
 
 
 
-EXPOSE_INTERFACE( CLinearRampProxy, IMaterialProxy, "LinearRamp" IMATERIAL_PROXY_INTERFACE_VERSION );
+EXPOSE_INTERFACE(CLinearRampProxy, IMaterialProxy, "LinearRamp" IMATERIAL_PROXY_INTERFACE_VERSION);
 
 
 //-----------------------------------------------------------------------------
@@ -635,8 +635,8 @@ EXPOSE_INTERFACE( CLinearRampProxy, IMaterialProxy, "LinearRamp" IMATERIAL_PROXY
 class CUniformNoiseProxy : public CResultProxy
 {
 public:
-	virtual bool Init( IMaterial *pMaterial, KeyValues *pKeyValues );
-	virtual void OnBind( void *pC_BaseEntity );
+	virtual bool Init(IMaterial* pMaterial, KeyValues* pKeyValues);
+	virtual void OnBind(void* pC_BaseEntity);
 
 private:
 	CFloatInput	m_flMinVal;
@@ -644,32 +644,32 @@ private:
 };
 
 
-bool CUniformNoiseProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
+bool CUniformNoiseProxy::Init(IMaterial* pMaterial, KeyValues* pKeyValues)
 {
-	if (!CResultProxy::Init( pMaterial, pKeyValues ))
+	if (!CResultProxy::Init(pMaterial, pKeyValues))
 		return false;
 
-	if (!m_flMinVal.Init( pMaterial, pKeyValues, "minVal", 0 ))
+	if (!m_flMinVal.Init(pMaterial, pKeyValues, "minVal", 0))
 		return false;
 
-	if (!m_flMaxVal.Init( pMaterial, pKeyValues, "maxVal", 1 ))
+	if (!m_flMaxVal.Init(pMaterial, pKeyValues, "maxVal", 1))
 		return false;
 
 	return true;
 }
 
-void CUniformNoiseProxy::OnBind( void *pC_BaseEntity )
+void CUniformNoiseProxy::OnBind(void* pC_BaseEntity)
 {
-	SetFloatResult( random->RandomFloat( m_flMinVal.GetFloat(), m_flMaxVal.GetFloat() ) );
+	SetFloatResult(random->RandomFloat(m_flMinVal.GetFloat(), m_flMaxVal.GetFloat()));
 
-	if ( ToolsEnabled() )
+	if (ToolsEnabled())
 	{
-		ToolFramework_RecordMaterialParams( GetMaterial() );
+		ToolFramework_RecordMaterialParams(GetMaterial());
 	}
 }
 
 
-EXPOSE_INTERFACE( CUniformNoiseProxy, IMaterialProxy, "UniformNoise" IMATERIAL_PROXY_INTERFACE_VERSION );
+EXPOSE_INTERFACE(CUniformNoiseProxy, IMaterialProxy, "UniformNoise" IMATERIAL_PROXY_INTERFACE_VERSION);
 
 
 //-----------------------------------------------------------------------------
@@ -678,8 +678,8 @@ EXPOSE_INTERFACE( CUniformNoiseProxy, IMaterialProxy, "UniformNoise" IMATERIAL_P
 class CGaussianNoiseProxy : public CResultProxy
 {
 public:
-	virtual bool Init( IMaterial *pMaterial, KeyValues *pKeyValues );
-	virtual void OnBind( void *pC_BaseEntity );
+	virtual bool Init(IMaterial* pMaterial, KeyValues* pKeyValues);
+	virtual void OnBind(void* pC_BaseEntity);
 
 private:
 	CFloatInput m_Mean;
@@ -689,31 +689,31 @@ private:
 };
 
 
-bool CGaussianNoiseProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
+bool CGaussianNoiseProxy::Init(IMaterial* pMaterial, KeyValues* pKeyValues)
 {
-	if (!CResultProxy::Init( pMaterial, pKeyValues ))
+	if (!CResultProxy::Init(pMaterial, pKeyValues))
 		return false;
 
-	if (!m_Mean.Init( pMaterial, pKeyValues, "mean", 0.0f ))
+	if (!m_Mean.Init(pMaterial, pKeyValues, "mean", 0.0f))
 		return false;
 
-	if (!m_StdDev.Init( pMaterial, pKeyValues, "halfwidth", 1.0f ))
+	if (!m_StdDev.Init(pMaterial, pKeyValues, "halfwidth", 1.0f))
 		return false;
 
-	if (!m_flMinVal.Init( pMaterial, pKeyValues, "minVal", -FLT_MAX ))
+	if (!m_flMinVal.Init(pMaterial, pKeyValues, "minVal", -FLT_MAX))
 		return false;
 
-	if (!m_flMaxVal.Init( pMaterial, pKeyValues, "maxVal", FLT_MAX ))
+	if (!m_flMaxVal.Init(pMaterial, pKeyValues, "maxVal", FLT_MAX))
 		return false;
 
 	return true;
 }
 
-void CGaussianNoiseProxy::OnBind( void *pC_BaseEntity )
+void CGaussianNoiseProxy::OnBind(void* pC_BaseEntity)
 {
 	float flMean = m_Mean.GetFloat();
 	float flStdDev = m_StdDev.GetFloat();
-	float flVal = randomgaussian->RandomFloat( flMean, flStdDev );
+	float flVal = randomgaussian->RandomFloat(flMean, flStdDev);
 	float flMaxVal = m_flMaxVal.GetFloat();
 	float flMinVal = m_flMinVal.GetFloat();
 
@@ -727,19 +727,19 @@ void CGaussianNoiseProxy::OnBind( void *pC_BaseEntity )
 	// clamp
 	if (flVal < flMinVal)
 		flVal = flMinVal;
-	else if ( flVal > flMaxVal )
+	else if (flVal > flMaxVal)
 		flVal = flMaxVal;
 
-	SetFloatResult( flVal );
+	SetFloatResult(flVal);
 
-	if ( ToolsEnabled() )
+	if (ToolsEnabled())
 	{
-		ToolFramework_RecordMaterialParams( GetMaterial() );
+		ToolFramework_RecordMaterialParams(GetMaterial());
 	}
 }
 
 
-EXPOSE_INTERFACE( CGaussianNoiseProxy, IMaterialProxy, "GaussianNoise" IMATERIAL_PROXY_INTERFACE_VERSION );
+EXPOSE_INTERFACE(CGaussianNoiseProxy, IMaterialProxy, "GaussianNoise" IMATERIAL_PROXY_INTERFACE_VERSION);
 
 
 //-----------------------------------------------------------------------------
@@ -748,8 +748,8 @@ EXPOSE_INTERFACE( CGaussianNoiseProxy, IMaterialProxy, "GaussianNoise" IMATERIAL
 class CExponentialProxy : public CFunctionProxy
 {
 public:
-	virtual bool Init( IMaterial *pMaterial, KeyValues *pKeyValues );
-	virtual void OnBind( void *pC_BaseEntity );
+	virtual bool Init(IMaterial* pMaterial, KeyValues* pKeyValues);
+	virtual void OnBind(void* pC_BaseEntity);
 
 private:
 	CFloatInput	m_Scale;
@@ -759,29 +759,29 @@ private:
 };
 
 
-bool CExponentialProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
+bool CExponentialProxy::Init(IMaterial* pMaterial, KeyValues* pKeyValues)
 {
-	if (!CFunctionProxy::Init( pMaterial, pKeyValues ))
+	if (!CFunctionProxy::Init(pMaterial, pKeyValues))
 		return false;
 
-	if (!m_Scale.Init( pMaterial, pKeyValues, "scale", 1.0f ))
+	if (!m_Scale.Init(pMaterial, pKeyValues, "scale", 1.0f))
 		return false;
 
-	if (!m_Offset.Init( pMaterial, pKeyValues, "offset", 0.0f ))
+	if (!m_Offset.Init(pMaterial, pKeyValues, "offset", 0.0f))
 		return false;
 
-	if (!m_flMinVal.Init( pMaterial, pKeyValues, "minVal", -FLT_MAX ))
+	if (!m_flMinVal.Init(pMaterial, pKeyValues, "minVal", -FLT_MAX))
 		return false;
 
-	if (!m_flMaxVal.Init( pMaterial, pKeyValues, "maxVal", FLT_MAX ))
+	if (!m_flMaxVal.Init(pMaterial, pKeyValues, "maxVal", FLT_MAX))
 		return false;
 
 	return true;
 }
 
-void CExponentialProxy::OnBind( void *pC_BaseEntity )
-{	
-	float flVal = m_Scale.GetFloat() * exp(m_pSrc1->GetFloatValue( ) + m_Offset.GetFloat());
+void CExponentialProxy::OnBind(void* pC_BaseEntity)
+{
+	float flVal = m_Scale.GetFloat() * exp(m_pSrc1->GetFloatValue() + m_Offset.GetFloat());
 
 	float flMaxVal = m_flMaxVal.GetFloat();
 	float flMinVal = m_flMinVal.GetFloat();
@@ -796,19 +796,19 @@ void CExponentialProxy::OnBind( void *pC_BaseEntity )
 	// clamp
 	if (flVal < flMinVal)
 		flVal = flMinVal;
-	else if ( flVal > flMaxVal )
+	else if (flVal > flMaxVal)
 		flVal = flMaxVal;
 
-	SetFloatResult( flVal );
+	SetFloatResult(flVal);
 
-	if ( ToolsEnabled() )
+	if (ToolsEnabled())
 	{
-		ToolFramework_RecordMaterialParams( GetMaterial() );
+		ToolFramework_RecordMaterialParams(GetMaterial());
 	}
 }
 
 
-EXPOSE_INTERFACE( CExponentialProxy, IMaterialProxy, "Exponential" IMATERIAL_PROXY_INTERFACE_VERSION );
+EXPOSE_INTERFACE(CExponentialProxy, IMaterialProxy, "Exponential" IMATERIAL_PROXY_INTERFACE_VERSION);
 
 
 //-----------------------------------------------------------------------------
@@ -817,22 +817,22 @@ EXPOSE_INTERFACE( CExponentialProxy, IMaterialProxy, "Exponential" IMATERIAL_PRO
 class CAbsProxy : public CFunctionProxy
 {
 public:
-	virtual void OnBind( void *pC_BaseEntity );
+	virtual void OnBind(void* pC_BaseEntity);
 };
 
 
-void CAbsProxy::OnBind( void *pC_BaseEntity )
-{	
-	SetFloatResult( fabs(m_pSrc1->GetFloatValue( )) );
+void CAbsProxy::OnBind(void* pC_BaseEntity)
+{
+	SetFloatResult(fabs(m_pSrc1->GetFloatValue()));
 
-	if ( ToolsEnabled() )
+	if (ToolsEnabled())
 	{
-		ToolFramework_RecordMaterialParams( GetMaterial() );
+		ToolFramework_RecordMaterialParams(GetMaterial());
 	}
 }
 
 
-EXPOSE_INTERFACE( CAbsProxy, IMaterialProxy, "Abs" IMATERIAL_PROXY_INTERFACE_VERSION );
+EXPOSE_INTERFACE(CAbsProxy, IMaterialProxy, "Abs" IMATERIAL_PROXY_INTERFACE_VERSION);
 
 
 //-----------------------------------------------------------------------------
@@ -843,14 +843,14 @@ class CEmptyProxy : public IMaterialProxy
 public:
 	CEmptyProxy() {}
 	virtual ~CEmptyProxy() {}
-	virtual bool Init( IMaterial *pMaterial, KeyValues *pKeyValues ) { return true; }
-	virtual void OnBind( void *pC_BaseEntity ) {}
-	virtual void Release( void ) { delete this; }
-	virtual IMaterial *GetMaterial() { return NULL; }
+	virtual bool Init(IMaterial* pMaterial, KeyValues* pKeyValues) { return true; }
+	virtual void OnBind(void* pC_BaseEntity) {}
+	virtual void Release(void) { delete this; }
+	virtual IMaterial* GetMaterial() { return NULL; }
 };
 
 
-EXPOSE_INTERFACE( CEmptyProxy, IMaterialProxy, "Empty" IMATERIAL_PROXY_INTERFACE_VERSION );
+EXPOSE_INTERFACE(CEmptyProxy, IMaterialProxy, "Empty" IMATERIAL_PROXY_INTERFACE_VERSION);
 
 
 //-----------------------------------------------------------------------------
@@ -859,46 +859,46 @@ EXPOSE_INTERFACE( CEmptyProxy, IMaterialProxy, "Empty" IMATERIAL_PROXY_INTERFACE
 class CLessOrEqualProxy : public CFunctionProxy
 {
 public:
-	bool Init( IMaterial *pMaterial, KeyValues *pKeyValues );
-	void OnBind( void *pC_BaseEntity );
+	bool Init(IMaterial* pMaterial, KeyValues* pKeyValues);
+	void OnBind(void* pC_BaseEntity);
 
 private:
-	IMaterialVar *m_pLessVar;
-	IMaterialVar *m_pGreaterVar;
+	IMaterialVar* m_pLessVar;
+	IMaterialVar* m_pGreaterVar;
 };
 
-bool CLessOrEqualProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
+bool CLessOrEqualProxy::Init(IMaterial* pMaterial, KeyValues* pKeyValues)
 {
-	char const* pLessEqualVar = pKeyValues->GetString( "lessEqualVar" );
-	if( !pLessEqualVar )
+	char const* pLessEqualVar = pKeyValues->GetString("lessEqualVar");
+	if (!pLessEqualVar)
 		return false;
 
 	bool foundVar;
-	m_pLessVar = pMaterial->FindVar( pLessEqualVar, &foundVar, true );
-	if( !foundVar )
+	m_pLessVar = pMaterial->FindVar(pLessEqualVar, &foundVar, true);
+	if (!foundVar)
 		return false;
 
-	char const* pGreaterVar = pKeyValues->GetString( "greaterVar" );
-	if( !pGreaterVar )
+	char const* pGreaterVar = pKeyValues->GetString("greaterVar");
+	if (!pGreaterVar)
 		return false;
 
 	foundVar;
-	m_pGreaterVar = pMaterial->FindVar( pGreaterVar, &foundVar, true );
-	if( !foundVar )
+	m_pGreaterVar = pMaterial->FindVar(pGreaterVar, &foundVar, true);
+	if (!foundVar)
 		return false;
 
 	// Compare 2 args..
-	bool ok = CFunctionProxy::Init( pMaterial, pKeyValues );
+	bool ok = CFunctionProxy::Init(pMaterial, pKeyValues);
 	ok = ok && m_pSrc2;
 	return ok;
 }
 
-void CLessOrEqualProxy::OnBind( void *pC_BaseEntity )
+void CLessOrEqualProxy::OnBind(void* pC_BaseEntity)
 {
-	Assert( m_pSrc1 && m_pSrc2 && m_pLessVar && m_pGreaterVar && m_pResult );
+	Assert(m_pSrc1 && m_pSrc2 && m_pLessVar && m_pGreaterVar && m_pResult);
 
-	IMaterialVar *pSourceVar;
-	if (m_pSrc1->GetFloatValue() <= m_pSrc2->GetFloatValue())
+	IMaterialVar* pSourceVar;
+	if (GetSrc1Float() <= GetSrc2Float())
 	{
 		pSourceVar = m_pLessVar;
 	}
@@ -924,32 +924,32 @@ void CLessOrEqualProxy::OnBind( void *pC_BaseEntity )
 		}
 	}
 
-	switch( resultType )
+	switch (resultType)
 	{
 	case MATERIAL_VAR_TYPE_VECTOR:
-		{
-			Vector src;
-			pSourceVar->GetVecValue( src.Base(), vecSize ); 
-			m_pResult->SetVecValue( src.Base(), vecSize );
-		}
-		break;
+	{
+		Vector src;
+		pSourceVar->GetVecValue(src.Base(), vecSize);
+		m_pResult->SetVecValue(src.Base(), vecSize);
+	}
+	break;
 
 	case MATERIAL_VAR_TYPE_FLOAT:
-		SetFloatResult( pSourceVar->GetFloatValue() );
+		SetFloatResult(pSourceVar->GetFloatValue());
 		break;
 
 	case MATERIAL_VAR_TYPE_INT:
-		m_pResult->SetFloatValue( pSourceVar->GetIntValue() );
+		m_pResult->SetFloatValue(pSourceVar->GetIntValue());
 		break;
 	}
 
-	if ( ToolsEnabled() )
+	if (ToolsEnabled())
 	{
-		ToolFramework_RecordMaterialParams( GetMaterial() );
+		ToolFramework_RecordMaterialParams(GetMaterial());
 	}
 }
 
-EXPOSE_INTERFACE( CLessOrEqualProxy, IMaterialProxy, "LessOrEqual" IMATERIAL_PROXY_INTERFACE_VERSION );
+EXPOSE_INTERFACE(CLessOrEqualProxy, IMaterialProxy, "LessOrEqual" IMATERIAL_PROXY_INTERFACE_VERSION);
 
 //-----------------------------------------------------------------------------
 // WrapMinMax proxy
@@ -957,62 +957,62 @@ EXPOSE_INTERFACE( CLessOrEqualProxy, IMaterialProxy, "LessOrEqual" IMATERIAL_PRO
 class CWrapMinMaxProxy : public CFunctionProxy
 {
 public:
-	virtual bool Init( IMaterial *pMaterial, KeyValues *pKeyValues );
-	virtual void OnBind( void *pC_BaseEntity );
+	virtual bool Init(IMaterial* pMaterial, KeyValues* pKeyValues);
+	virtual void OnBind(void* pC_BaseEntity);
 
 private:
 	CFloatInput	m_flMinVal;
 	CFloatInput	m_flMaxVal;
 };
 
-bool CWrapMinMaxProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
+bool CWrapMinMaxProxy::Init(IMaterial* pMaterial, KeyValues* pKeyValues)
 {
-	if (!CFunctionProxy::Init( pMaterial, pKeyValues ))
+	if (!CFunctionProxy::Init(pMaterial, pKeyValues))
 		return false;
 
-	if (!m_flMinVal.Init( pMaterial, pKeyValues, "minVal", 0 ))
+	if (!m_flMinVal.Init(pMaterial, pKeyValues, "minVal", 0))
 		return false;
 
-	if (!m_flMaxVal.Init( pMaterial, pKeyValues, "maxVal", 1 ))
+	if (!m_flMaxVal.Init(pMaterial, pKeyValues, "maxVal", 1))
 		return false;
 
 	return true;
 }
 
-void CWrapMinMaxProxy::OnBind( void *pC_BaseEntity )
+void CWrapMinMaxProxy::OnBind(void* pC_BaseEntity)
 {
-	Assert( m_pSrc1 && m_pResult );
+	Assert(m_pSrc1 && m_pResult);
 
-	if ( m_flMaxVal.GetFloat() <= m_flMinVal.GetFloat() ) // Bad input, just return the min
+	if (m_flMaxVal.GetFloat() <= m_flMinVal.GetFloat()) // Bad input, just return the min
 	{
-		SetFloatResult( m_flMinVal.GetFloat() );
+		SetFloatResult(m_flMinVal.GetFloat());
 	}
 	else
 	{
-		float flResult = ( m_pSrc1->GetFloatValue() - m_flMinVal.GetFloat() ) / ( m_flMaxVal.GetFloat() - m_flMinVal.GetFloat() );
+		float flResult = (GetSrc1Float() - m_flMinVal.GetFloat()) / (m_flMaxVal.GetFloat() - m_flMinVal.GetFloat());
 
-		if ( flResult >= 0.0f )
+		if (flResult >= 0.0f)
 		{
-			flResult -= ( float )( int )flResult;
+			flResult -= (float)(int)flResult;
 		}
 		else // Negative
 		{
-			flResult -= ( float )( ( ( int )flResult ) - 1 );
+			flResult -= (float)(((int)flResult) - 1);
 		}
 
-		flResult *= ( m_flMaxVal.GetFloat() - m_flMinVal.GetFloat() );
+		flResult *= (m_flMaxVal.GetFloat() - m_flMinVal.GetFloat());
 		flResult += m_flMinVal.GetFloat();
 
-		SetFloatResult( flResult );
+		SetFloatResult(flResult);
 	}
 
-	if ( ToolsEnabled() )
+	if (ToolsEnabled())
 	{
-		ToolFramework_RecordMaterialParams( GetMaterial() );
+		ToolFramework_RecordMaterialParams(GetMaterial());
 	}
 }
 
-EXPOSE_INTERFACE( CWrapMinMaxProxy, IMaterialProxy, "WrapMinMax" IMATERIAL_PROXY_INTERFACE_VERSION );
+EXPOSE_INTERFACE(CWrapMinMaxProxy, IMaterialProxy, "WrapMinMax" IMATERIAL_PROXY_INTERFACE_VERSION);
 
 
 //-----------------------------------------------------------------------------
@@ -1022,72 +1022,72 @@ EXPOSE_INTERFACE( CWrapMinMaxProxy, IMaterialProxy, "WrapMinMax" IMATERIAL_PROXY
 class CSelectFirstIfNonZeroProxy : public CFunctionProxy
 {
 public:
-	bool Init( IMaterial *pMaterial, KeyValues *pKeyValues );
-	void OnBind( void *pC_BaseEntity );
+	bool Init(IMaterial* pMaterial, KeyValues* pKeyValues);
+	void OnBind(void* pC_BaseEntity);
 };
 
-bool CSelectFirstIfNonZeroProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
+bool CSelectFirstIfNonZeroProxy::Init(IMaterial* pMaterial, KeyValues* pKeyValues)
 {
 	// Requires 2 args..
-	bool ok = CFunctionProxy::Init( pMaterial, pKeyValues );
+	bool ok = CFunctionProxy::Init(pMaterial, pKeyValues);
 	ok = ok && m_pSrc2;
 	return ok;
 }
 
-void CSelectFirstIfNonZeroProxy::OnBind( void *pC_BaseEntity )
+void CSelectFirstIfNonZeroProxy::OnBind(void* pC_BaseEntity)
 {
-	Assert( m_pSrc1 && m_pSrc2 && m_pResult );
+	Assert(m_pSrc1 && m_pSrc2 && m_pResult);
 
 	MaterialVarType_t resultType;
 	int vecSize;
-	ComputeResultType( resultType, vecSize );
+	ComputeResultType(resultType, vecSize);
 
-	switch( resultType )
+	switch (resultType)
 	{
 	case MATERIAL_VAR_TYPE_VECTOR:
-		{
-			Vector a, b;
-			m_pSrc1->GetVecValue( a.Base(), vecSize ); 
-			m_pSrc2->GetVecValue( b.Base(), vecSize ); 
+	{
+		Vector a, b;
+		m_pSrc1->GetVecValue(a.Base(), vecSize);
+		m_pSrc2->GetVecValue(b.Base(), vecSize);
 
-			if ( !a.IsZero() )
-			{
-				m_pResult->SetVecValue( a.Base(), vecSize );
-			}
-			else
-			{
-				m_pResult->SetVecValue( b.Base(), vecSize );
-			}
-		}
-		break;
-
-	case MATERIAL_VAR_TYPE_FLOAT:
-		if ( m_pSrc1->GetFloatValue() )
+		if (!a.IsZero())
 		{
-			SetFloatResult( m_pSrc1->GetFloatValue() );
+			m_pResult->SetVecValue(a.Base(), vecSize);
 		}
 		else
 		{
-			SetFloatResult( m_pSrc2->GetFloatValue() );
+			m_pResult->SetVecValue(b.Base(), vecSize);
+		}
+	}
+	break;
+
+	case MATERIAL_VAR_TYPE_FLOAT:
+		if (GetSrc1Float())
+		{
+			SetFloatResult(GetSrc1Float());
+		}
+		else
+		{
+			SetFloatResult(GetSrc2Float());
 		}
 		break;
 
 	case MATERIAL_VAR_TYPE_INT:
-		if ( m_pSrc1->GetIntValue() )
+		if (m_pSrc1->GetIntValue())
 		{
-			m_pResult->SetFloatValue( m_pSrc1->GetIntValue() );
+			m_pResult->SetFloatValue(m_pSrc1->GetIntValue());
 		}
 		else
 		{
-			m_pResult->SetFloatValue( m_pSrc2->GetIntValue() );
+			m_pResult->SetFloatValue(m_pSrc2->GetIntValue());
 		}
 		break;
 	}
 
-	if ( ToolsEnabled() )
+	if (ToolsEnabled())
 	{
-		ToolFramework_RecordMaterialParams( GetMaterial() );
+		ToolFramework_RecordMaterialParams(GetMaterial());
 	}
 }
 
-EXPOSE_INTERFACE( CSelectFirstIfNonZeroProxy, IMaterialProxy, "SelectFirstIfNonZero" IMATERIAL_PROXY_INTERFACE_VERSION );
+EXPOSE_INTERFACE(CSelectFirstIfNonZeroProxy, IMaterialProxy, "SelectFirstIfNonZero" IMATERIAL_PROXY_INTERFACE_VERSION);
