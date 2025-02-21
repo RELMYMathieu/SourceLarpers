@@ -60,3 +60,4 @@ config.cfg
 # shader files
 *.tmp
 
+/.vs
